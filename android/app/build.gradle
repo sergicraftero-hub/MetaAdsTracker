@@ -1,0 +1,50 @@
+plugins {
+    id "com.android.application"
+}
+
+// Dirección de la web que abre la app. Si cambia (por ejemplo, a un dominio propio),
+// hay que cambiarla aquí, volver a compilar y repartir el APK nuevo.
+def HOST = "meta-ads-tracker-theta.vercel.app"
+
+android {
+    namespace "app.butcalls.twa"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "app.butcalls.twa"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "1.0"
+        manifestPlaceholders = [host: HOST]
+        resValue "string", "asset_statements", "[{\\\"relation\\\": [\\\"delegate_permission/common.handle_all_urls\\\"], \\\"target\\\": {\\\"namespace\\\": \\\"web\\\", \\\"site\\\": \\\"https://${HOST}\\\"}}]"
+    }
+
+    signingConfigs {
+        release {
+            // La clave de firma no está en el repositorio: se pasa al compilar con -Pks=… -Pkspass=…
+            if (project.hasProperty("ks")) {
+                storeFile file(project.property("ks"))
+                storePassword project.property("kspass")
+                keyAlias "butcalls"
+                keyPassword project.property("kspass")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (project.hasProperty("ks")) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.5.0"
+}
