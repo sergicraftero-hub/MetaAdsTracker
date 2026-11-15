@@ -9,14 +9,14 @@ const pub = ({ hash: _hash, ...u }: StoredUser): User => u;
 
 export const GET = handle(async () => {
   await requireSession(true);
-  const configured = store.usersConfigured();
+  const configured = await store.usersConfigured();
   const users = configured ? (await store.listUsers(true)).map(pub) : [];
   return NextResponse.json({ configured, users });
 });
 
 export const POST = handle(async (req: Request) => {
   await requireSession(true);
-  if (!store.usersConfigured()) throw new HttpError(400, "Falta configurar NOTION_USERS_DB_ID");
+  if (!(await store.usersConfigured())) throw new HttpError(400, "Falta configurar NOTION_USERS_DB_ID");
   const b = (await req.json().catch(() => ({}))) as Partial<User> & { password?: string };
   const email = b.email?.trim().toLowerCase();
   if (!b.name?.trim() || !email || !/^\S+@\S+\.\S+$/.test(email)) throw new HttpError(400, "Nombre y email válidos son obligatorios");

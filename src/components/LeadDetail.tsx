@@ -151,6 +151,31 @@ export default function LeadDetail({ lead, data, actions, onClose }: Props) {
               </label>
             )}
 
+            {(stageOf(f.estado) === "ganado" || lead.contrato) && (
+              <div className="field">
+                <span className="label">Contrato</span>
+                <span className="muted hint">{lead.contrato ? `Adjunto en Notion: ${lead.contrato}` : "Sin contrato adjunto."}</span>
+                <input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  aria-label="Subir contrato"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 4 * 1024 * 1024) return actions.toast("El archivo supera los 4 MB", true);
+                    const form = new FormData();
+                    form.append("file", file);
+                    const res = await fetch(`/api/leads/${lead.id}/contrato`, { method: "POST", body: form }).catch(() => null);
+                    const j = await res?.json().catch(() => ({}));
+                    if (res?.ok) {
+                      actions.replace(j.lead);
+                      actions.toast("Contrato subido a Notion");
+                    } else actions.toast(`No se subió el contrato: ${j?.error ?? "sin conexión"}`, true);
+                  }}
+                />
+              </div>
+            )}
+
             <label className="check">
               <input type="checkbox" checked={f.whatsapp === true} onChange={(e) => save({ whatsapp: e.target.checked })} />
               WhatsApp enviado

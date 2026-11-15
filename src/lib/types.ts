@@ -30,6 +30,8 @@ export interface Lead {
   url?: string;
   edited: string;
   f: Fields;
+  /** Nombre del contrato adjunto, si lo hay */
+  contrato?: string | null;
 }
 
 export interface Option {
@@ -74,6 +76,25 @@ export interface Session {
   exp: number;
 }
 
+/** Una llamada (o un lead saltado) del modo «Llamar». */
+export interface CallLog {
+  id: string;
+  /** Momento en que el lead apareció en pantalla */
+  at: string;
+  user: string;
+  code: string;
+  leadId: string;
+  leadName: string;
+  /** nuevo | antiguo | rellamada | ilocalizable */
+  source: string;
+  /** Estado elegido, o SALTADO */
+  result: string;
+  /** Segundos entre que apareció el lead y se guardó el resultado */
+  seconds: number;
+  /** Si se pulsó el botón de llamar */
+  called: boolean;
+}
+
 export interface LeadsPayload {
   leads: Lead[];
   schema: Schema;
@@ -81,4 +102,6 @@ export interface LeadsPayload {
   comerciales: string[];
   demo: boolean;
   syncedAt: string;
+  /** ¿Existe la base de datos donde se registran las llamadas? */
+  logReady: boolean;
 }

@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { isClosed, stageOf } from "@/lib/fields";
 import type { Lead, LeadsPayload } from "@/lib/types";
+import Activity from "./Activity";
 import { dayDiff, dayKey, entryTime, isDue, parseWhen, pretty, str } from "./util";
 
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)} %` : "—");
@@ -115,6 +116,8 @@ export default function Dashboard({ data }: { data: LeadsPayload }) {
 
   return (
     <div className="stack">
+      <Activity data={data} />
+      <h2 className="section-title">Leads</h2>
       <div className="filters">
         <div className="seg" role="group" aria-label="Periodo de entrada del lead">
           {(["7", "30", "all"] as const).map((r) => (

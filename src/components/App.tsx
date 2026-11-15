@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Fields, Lead, LeadsPayload } from "@/lib/types";
+import CallMode from "./CallMode";
 import Dashboard from "./Dashboard";
 import LeadDetail from "./LeadDetail";
 import NewLead from "./NewLead";
@@ -8,30 +9,32 @@ import Team from "./Team";
 import { api } from "./util";
 import { LeadList, Pipeline, Today } from "./views";
 
-type Tab = "hoy" | "leads" | "embudo" | "panel" | "equipo";
+type Tab = "llamar" | "hoy" | "leads" | "embudo" | "panel" | "equipo";
 const CACHE_KEY = "but-calls-v1";
 
 const ICONS: Record<Tab, string> = {
+  llamar: "M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z",
   hoy: "M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
   leads: "M4 6h16M4 12h16M4 18h10",
   embudo: "M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v6h-4z",
   panel: "M4 20V10M10 20V4M16 20v-7M22 20H2",
   equipo: "M16 19v-1a4 4 0 0 0-8 0v1M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM20 19v-1a3 3 0 0 0-2-2.8M4 19v-1a3 3 0 0 1 2-2.8",
 };
-const TITLES: Record<Tab, string> = { hoy: "Hoy", leads: "Leads", embudo: "Embudo", panel: "Panel", equipo: "Equipo" };
+const TITLES: Record<Tab, string> = { llamar: "Llamar", hoy: "Hoy", leads: "Leads", embudo: "Embudo", panel: "Panel", equipo: "Equipo" };
 
 export interface Actions {
   open: (id: string) => void;
   save: (id: string, fields: Partial<Fields>) => Promise<void>;
   attempt: (id: string, fields?: Partial<Fields>) => Promise<void>;
   toast: (msg: string, error?: boolean) => void;
+  replace: (lead: Lead) => void;
 }
 
 export default function App() {
   const [data, setData] = useState<LeadsPayload | null>(null);
   const [error, setError] = useState("");
   const [stale, setStale] = useState(false);
-  const [tab, setTab] = useState<Tab>("hoy");
+  const [tab, setTab] = useState<Tab>("llamar");
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [toastMsg, setToastMsg] = useState<{ msg: string; error: boolean } | null>(null);
@@ -129,10 +132,11 @@ export default function App() {
     () => ({
       open,
       toast,
+      replace: replaceLead,
       save: (id, fields) => mutate(id, fields, `/api/leads/${id}`, "PATCH", "Guardado en Notion"),
       attempt: (id, fields = {}) => mutate(id, fields, `/api/leads/${id}/intento`, "POST", "Intento registrado"),
     }),
-    [open, toast, mutate],
+    [open, toast, mutate, replaceLead],
   );
 
   if (!data) {
@@ -151,7 +155,7 @@ export default function App() {
   }
 
   const admin = data.me.role === "admin";
-  const tabs: Tab[] = admin ? ["hoy", "leads", "embudo", "panel", "equipo"] : ["hoy", "leads", "embudo", "panel"];
+  const tabs: Tab[] = admin ? ["llamar", "hoy", "leads", "embudo", "panel", "equipo"] : ["llamar", "hoy", "leads", "embudo", "panel"];
   const lead = selected ? data.leads.find((l) => l.id === selected) : undefined;
 
   return (
@@ -209,6 +213,7 @@ export default function App() {
             </button>
           </div>
         </header>
+        {tab === "llamar" && <CallMode data={data} replaceLead={replaceLead} toast={toast} />}
         {tab === "hoy" && <Today data={data} actions={actions} />}
         {tab === "leads" && <LeadList data={data} actions={actions} />}
         {tab === "embudo" && <Pipeline data={data} actions={actions} />}

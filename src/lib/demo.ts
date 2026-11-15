@@ -5,7 +5,7 @@
 import { NOTION_NAMES } from "./fields";
 import { hashPassword } from "./password";
 import { FIELD_KEYS } from "./types";
-import type { Fields, Lead, Option, Schema, StoredUser } from "./types";
+import type { CallLog, Fields, Lead, Option, Schema, StoredUser } from "./types";
 
 const ESTADOS: Option[] = [
   { name: "RELLAMAR", color: "orange" },
@@ -102,13 +102,42 @@ function seed(): Lead[] {
 interface DemoState {
   leads: Map<string, Lead>;
   users: StoredUser[];
+  log: CallLog[];
   n: number;
+}
+
+/** Historial inventado de llamadas de los últimos días, para que el panel tenga algo que enseñar. */
+function seedLog(leads: Lead[]): CallLog[] {
+  let s = 7;
+  const rnd = () => ((s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296);
+  const results = ["ILOCALIZABLE", "ILOCALIZABLE", "RELLAMAR", "CONTACTADO E INTERESADO", "CONTACTADO Y NO INTERESADO", "FIMADO", "SALTADO"];
+  const out: CallLog[] = [];
+  for (let d = 0; d < 6; d++) {
+    for (const [code, user, n] of [["ANA", "Ana (comercial demo)", 22], ["LUIS", "Luis (comercial demo)", 15]] as const) {
+      const t = new Date();
+      t.setDate(t.getDate() - d);
+      t.setHours(9, Math.floor(rnd() * 30), 0, 0);
+      for (let i = 0; i < n - d * 2; i++) {
+        const seconds = 40 + Math.floor(rnd() * 320);
+        const lead = leads[Math.floor(rnd() * leads.length)];
+        const result = results[Math.floor(rnd() * results.length)];
+        if (t.getTime() < Date.now()) {
+          out.push({ id: `log-${out.length}`, at: t.toISOString(), user, code, leadId: lead.id, leadName: String(lead.f.nombre), source: ["antiguo", "antiguo", "nuevo", "rellamada"][i % 4], result, seconds, called: result !== "SALTADO" });
+        }
+        t.setSeconds(t.getSeconds() + seconds + 60 + Math.floor(rnd() * 600));
+      }
+    }
+  }
+  return out;
 }
 const g = globalThis as unknown as { __crmDemo?: DemoState };
 
 function state(): DemoState {
-  return (g.__crmDemo ??= {
-    leads: new Map(seed().map((l) => [l.id, l])),
+  if (g.__crmDemo) return g.__crmDemo;
+  const leads = seed();
+  return (g.__crmDemo = {
+    leads: new Map(leads.map((l) => [l.id, l])),
+    log: seedLog(leads),
     users: [
       { id: "u-ana", name: "Ana (comercial demo)", email: "ana@demo.com", role: "comercial", code: "ANA", active: true, hash: hashPassword("demo") },
       { id: "u-luis", name: "Luis (comercial demo)", email: "luis@demo.com", role: "comercial", code: "LUIS", active: true, hash: hashPassword("demo") },
@@ -133,6 +162,19 @@ export const demo = {
     const lead = { id: `demo-${++st.n}`, edited: new Date().toISOString(), f };
     st.leads.set(lead.id, lead);
     return lead;
+  },
+  addLog(e: Omit<CallLog, "id">): CallLog {
+    const entry = { ...e, id: `log-${++state().n}` };
+    state().log.push(entry);
+    return entry;
+  },
+  getLog: (from: number) => state().log.filter((e) => new Date(e.at).getTime() >= from),
+  attachContract(id: string, name: string): Lead {
+    const cur = state().leads.get(id);
+    if (!cur) throw new Error("Lead no encontrado");
+    const next = { ...cur, contrato: name };
+    state().leads.set(id, next);
+    return next;
   },
   listUsers: () => state().users,
   saveUser(id: string | null, u: Partial<StoredUser>): StoredUser {

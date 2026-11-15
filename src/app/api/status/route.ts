@@ -10,7 +10,8 @@ export const GET = handle(async () => {
   const schema = await store.getSchema(true);
   return NextResponse.json({
     demo: isDemo(),
-    usersConfigured: store.usersConfigured(),
+    usersConfigured: await store.usersConfigured(),
+    logConfigured: await store.logConfigured(),
     fields: Object.values(schema).map((f) => ({ name: f.name, type: f.type, writable: f.writable })),
   });
 });

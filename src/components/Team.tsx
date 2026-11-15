@@ -64,8 +64,8 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
         {!configured ? (
           <p className="notice">
             Aún no hay base de datos de usuarios, así que solo puede entrar el administrador inicial. Para dar acceso a los
-            comerciales: crea en Notion una base de datos vacía (por ejemplo «Usuarios CRM»), compártela con la integración y
-            pon su ID en la variable <code>NOTION_USERS_DB_ID</code> del servidor. La app crea las columnas sola.
+            comerciales: crea en Notion una página llamada «BUT Calls» y compártela con la integración (··· → Conexiones). La
+            app crea dentro las bases de usuarios y de registro de llamadas; vuelve a esta pantalla un minuto después.
           </p>
         ) : users === null ? (
           <p className="muted">Cargando…</p>
