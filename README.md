@@ -94,3 +94,17 @@ Sin `NOTION_TOKEN` la app arranca en **modo demostración** con datos inventados
 - `src/components/queue.ts`: orden de la cola del modo «Llamar».
 - `src/lib/bonus.ts`: cómo se calcula el progreso de los bonos.
 - `src/components/`: pantallas.
+
+## App de Android
+
+`android/` contiene un envoltorio que abre la web a pantalla completa (Trusted Web Activity). Para generar el APK hacen falta el SDK de Android, Gradle y la clave de firma (la guarda el cliente, no está en el repositorio):
+
+```bash
+cd android && gradle assembleRelease -Pks=/ruta/butcalls.keystore -Pkspass=CONTRASEÑA
+```
+
+La dirección de la web está en `android/app/build.gradle` (`HOST`). Si cambia, hay que volver a compilar y repartir el APK nuevo. `public/.well-known/assetlinks.json` enlaza la web con la app; lleva la huella de la clave de firma.
+
+## Pruebas
+
+`pruebas/pasar.sh` recorre la app en el modo demostración. Ver `pruebas/README.md`.

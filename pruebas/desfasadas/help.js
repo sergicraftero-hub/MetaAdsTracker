@@ -1,0 +1,14 @@
+const { chromium, devices } = require('playwright'); const B = 'http://localhost:3100', S = process.argv[2];
+async function login(p, email) { await p.goto(B + '/login'); await p.fill('input[type=email]', email); await p.fill('input[type=password]', 'demo'); await p.click('button.primary'); await p.waitForSelector('.shell'); }
+(async () => { const b = await chromium.launch(); const errs = [];
+  const c = await b.newContext({ ...devices['iPhone 13'], locale: 'es-ES' }); const m = await c.newPage(); await m.addLocatorHandler(m.locator('.code-modal'), async () => { await m.locator('.code-modal .btn').click(); }); m.on('pageerror', e => errs.push(String(e)));
+  await login(m, 'ana@demo.com'); await m.locator('.tab:has-text("Ayuda")').scrollIntoViewIfNeeded(); await m.click('.tab:has-text("Ayuda")'); await m.waitForSelector('button.guide'); await m.screenshot({ path: S + '/h-lista.png' });
+  console.log('guías:', await m.$$eval('button.guide strong', x => x.map(e => e.innerText)), '| ve guía de dirección:', await m.locator('text=Guía de dirección').count());
+  await m.click('button.guide:has-text("Hacer llamadas")'); await m.waitForSelector('.step-card'); await m.screenshot({ path: S + '/h-paso.png' });
+  let n = 1; while (await m.locator('.guide-open button:has-text("Siguiente")').count()) { await m.click('.guide-open button:has-text("Siguiente")'); n++; }
+  console.log('pasos recorridos:', n, '| último botón:', await m.locator('.guide-open .btn.primary').innerText()); await m.click('.guide-open .btn.primary'); await m.waitForSelector('.call-start');
+  await m.click('.tab:has-text("Ayuda")'); await m.waitForSelector('button.guide'); console.log('marcada como vista:', await m.locator('button.guide:has-text("Hacer llamadas") .pill').innerText(), '| overflow:', await m.evaluate(() => document.documentElement.scrollWidth - innerWidth));
+  const c2 = await b.newContext({ viewport: { width: 1280, height: 900 }, locale: 'es-ES' }); const a = await c2.newPage(); await a.addLocatorHandler(a.locator('.code-modal'), async () => { await a.locator('.code-modal .btn').click(); }); a.on('pageerror', e => errs.push(String(e)));
+  await login(a, 'demo@demo.com'); await a.click('.tab:has-text("Ayuda")'); await a.waitForSelector('.manual'); console.log('secciones dirección:', await a.$$eval('section.card h2', x => x.map(e => e.innerText)), '| entradas:', await a.locator('.manual dt').count());
+  await a.fill('input[type=search]', 'ausente'); await a.waitForTimeout(200); console.log('buscar «ausente»:', await a.$$eval('.manual dt', x => x.map(e => e.innerText))); await a.fill('input[type=search]', ''); await a.screenshot({ path: S + '/h-direccion.png' });
+  await a.click('text=Tutoriales del equipo'); console.log('dirección ve tutoriales:', await a.locator('button.guide').count(), '| errores:', errs); await b.close(); })().catch(e => { console.error(e); process.exit(1); });

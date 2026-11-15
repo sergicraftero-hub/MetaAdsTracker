@@ -1,0 +1,20 @@
+const { chromium, devices } = require('playwright'); const B = 'http://localhost:3100', S = process.argv[2];
+async function ctx(b, email, opts) { const c = await b.newContext({ locale: 'es-ES', timezoneId: 'Europe/Madrid', reducedMotion: 'reduce', ...opts }); const p = await c.newPage(); await p.addLocatorHandler(p.locator('.code-modal'), async () => { await p.locator('.code-modal .btn').click(); }); p.errs = []; p.on('pageerror', e => p.errs.push(String(e))); p.on('console', m => m.type() === 'error' && p.errs.push(m.text())); await p.goto(B + '/login'); await p.fill('input[type=email]', email); await p.fill('input[type=password]', 'demo'); await p.click('button.primary'); await p.waitForSelector('.shell'); return p; }
+const req = (p, m, url, body) => p.evaluate(([m, u, b]) => fetch(u, { method: m, headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined }).then(r => r.status), [m, url, body]);
+(async () => { const b = await chromium.launch();
+  const m = await ctx(b, 'ana@demo.com', { ...devices['iPhone 13'], deviceScaleFactor: 2 }); await req(m, 'POST', '/api/portal/fichaje', { action: 'entrar' }); await m.reload(); await m.waitForSelector('.call-start');
+  console.log('pestañas visibles en móvil:', await m.$$eval('.nav .tab', t => t.filter(x => getComputedStyle(x).display !== 'none').map(x => x.innerText)));
+  await m.screenshot({ path: S + '/v-inicio-m.png' });
+  await m.click('text=Empezar a llamar'); await m.waitForSelector('.call-card'); await m.screenshot({ path: S + '/v-llamar-m.png', fullPage: true });
+  console.log('resultados:', await m.$$eval('.res b', x => x.map(e => e.innerText)));
+  await m.click('.res:has-text("Rellamar")'); await m.waitForSelector('.step'); await m.click('.step >> text=Atrás');
+  await m.click('.more-tab'); await m.waitForSelector('.more-sheet'); await m.screenshot({ path: S + '/v-mas-m.png' }); console.log('en Más:', await m.$$eval('.more-item', x => x.map(e => e.innerText)));
+  await m.click('.more-item:has-text("Panel")'); await m.waitForSelector('.tile.hero'); console.log('Más → Panel ok; menú cerrado:', await m.locator('.more-sheet').count() === 0, '| overflow:', await m.evaluate(() => document.documentElement.scrollWidth - innerWidth));
+  const a = await ctx(b, 'demo@demo.com', { viewport: { width: 1360, height: 900 }, deviceScaleFactor: 2 });
+  await a.click('.tab:has-text("Panel")'); await a.waitForSelector('.tile.hero'); await a.waitForTimeout(400); await a.screenshot({ path: S + '/v-panel.png', fullPage: true });
+  await a.click('.tab:has-text("Equipo")'); await a.waitForSelector('table'); await a.click('tbody tr >> nth=0 >> text=Editar'); await a.waitForSelector('.dialog'); await a.screenshot({ path: S + '/v-dialogo.png' });
+  await a.fill('.dialog input >> nth=0', 'Ana Editada'); await a.click('.dialog .btn.primary'); await a.waitForSelector('th:has-text("Ana Editada")'); console.log('editar usuario con diálogo propio: ok');
+  await a.click('.bonus-admin >> text=Borrar >> nth=0'); await a.waitForSelector('.dialog'); console.log('confirmación propia:', await a.locator('.dialog h2').innerText()); await a.click('.dialog >> text=Cancelar');
+  await a.click('.tab:has-text("Llamar")'); await a.click('text=Empezar a llamar'); await a.waitForSelector('.call-card'); await a.screenshot({ path: S + '/v-llamar.png' });
+  await a.click('.tab:has-text("Ayuda")'); await a.click('text=Tutoriales del equipo'); await a.click('button.guide >> nth=1'); await a.waitForSelector('.step-card'); await a.screenshot({ path: S + '/v-ayuda.png' });
+  const emo = await a.evaluate(() => /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u.test(document.body.innerText)); console.log('emojis en pantalla:', emo, '| errores:', m.errs, a.errs); await b.close(); })().catch(e => { console.error(e); process.exit(1); });

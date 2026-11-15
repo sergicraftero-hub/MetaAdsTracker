@@ -1,0 +1,18 @@
+const { chromium } = require('playwright'); const B = 'http://localhost:3100', S = process.argv[2];
+const req = (p, m, url, body) => p.evaluate(([m, u, b]) => fetch(u, { method: m, headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined }).then(async r => [r.status, await r.json().catch(() => ({}))]), [m, url, body]);
+(async () => { const b = await chromium.launch(); const c = await b.newContext({ viewport: { width: 1360, height: 900 }, deviceScaleFactor: 2, locale: 'es-ES', timezoneId: 'Europe/Madrid', reducedMotion: 'reduce' }); const a = await c.newPage(); await a.addLocatorHandler(a.locator('.code-modal'), async () => { await a.locator('.code-modal .btn').click(); }); const errs = []; a.on('pageerror', e => errs.push(String(e)));
+  await a.goto(B + '/login'); await a.fill('input[type=email]', 'demo@demo.com'); await a.fill('input[type=password]', 'demo'); await a.click('button.primary'); await a.waitForSelector('.shell');
+  const snap = async () => { const d = (await req(a, 'GET', '/api/ventas'))[1]; const bo = (await req(a, 'GET', '/api/bonos'))[1].bonuses.find(x => x.metric === 'firmados'); const c1 = d.summary.find(x => x.code === 'Código 1'); return { total: d.totals.commission + d.totals.lots, comisiones: d.totals.commission, lotes: d.totals.lots, cod1: [c1.monthBaf, c1.lots], cuentan: d.counts, bonoFibras: bo.value }; };
+  const d0 = (await req(a, 'GET', '/api/ventas'))[1]; console.log('antes   :', JSON.stringify(await snap()));
+  const c1 = d0.sales.filter(s => s.code === 'Código 1' && !s.baja).slice(0, 2);
+  for (const s of c1) await req(a, 'PATCH', '/api/ventas/' + s.id, { baja: true });
+  console.log('2 no instaladas:', JSON.stringify(await snap()));
+  await req(a, 'PATCH', '/api/ventas/' + c1[0].id, { baja: false }); await req(a, 'PATCH', '/api/ventas/' + c1[1].id, { baja: false, primary: false });
+  console.log('1 vuelve, 1 pasa a 2.ª residencia:', JSON.stringify(await snap()));
+  const other = d0.sales.find(s => !s.baja && s.products.length && s.id !== c1[0].id && s.id !== c1[1].id); await req(a, 'PATCH', '/api/ventas/' + other.id, { products: ['mov-100'] });
+  const d1 = (await req(a, 'GET', '/api/ventas'))[1]; console.log('una pasa a solo línea → cuentan:', JSON.stringify(d1.counts), '| vendedores:', JSON.stringify(d1.sellers.map(s => [s.name, s.sales, s.fibers, s.second, s.lines])));
+  console.log('por producto:', d1.products.slice(0, 4).map(p => `${p.name.split(': ')[1] || p.name} ×${p.units} = ${p.commission} €`));
+  await a.click('.tab:has-text("Contratos")'); await a.waitForSelector('.split'); await a.click('summary:has-text("Ver por producto")'); await a.waitForTimeout(300); await a.screenshot({ path: S + '/r-contratos.png', fullPage: true });
+  await a.click('.tab:has-text("Panel")'); await a.waitForSelector('.profile'); const before = await a.$$eval('.profile .bar-name', x => x.map(e => e.innerText)); await a.selectOption('.mini-select', 'cuantoPaga'); await a.waitForTimeout(200);
+  console.log('perfil compañía:', before, '→ paga:', await a.$$eval('.profile li', x => x.map(e => e.innerText.replace(/\n+/g, ' '))));
+  await a.locator('.profile').scrollIntoViewIfNeeded(); await a.locator('section:has(.profile)').screenshot({ path: S + '/r-perfil.png' }); console.log('errores:', errs); await b.close(); })().catch(e => { console.error(e); process.exit(1); });

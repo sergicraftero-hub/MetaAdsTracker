@@ -6,7 +6,7 @@ Lista guardada el 15 de noviembre de 2026. Nada de esto está hecho; son ideas p
 
 1. **Prueba con datos reales.** Casi todo lo que escribe (resultados de llamada, fichajes, ventas, WhatsApp) está probado solo en el modo demostración. Hace falta un lead de prueba y permiso expreso para escribir en el Notion real.
 2. **Cambiar el token de Notion.** El que se compartió al principio sigue activo. Regenerarlo en Notion y poner el nuevo en Vercel.
-3. **Guardar las pruebas automáticas en el repositorio**, para que cada cambio futuro se compruebe solo.
+3. ~~Guardar las pruebas automáticas en el repositorio.~~ Hecho: están en `pruebas/` y se pasan con `pruebas/pasar.sh`.
 
 ## Funciones
 
