@@ -67,6 +67,8 @@ const json = (path: string, method = "GET", body?: unknown) =>
 export const cleanLabel = (s: unknown) => String(s ?? "").replace(/[\u200e\u200f\u202a-\u202e]/g, "").trim();
 const sameLabel = (a: string, b: string) => cleanLabel(a).toLowerCase() === cleanLabel(b).toLowerCase();
 
+const labelNames = (c: any): string[] => ((c.labels ?? []) as any[]).map((l) => cleanLabel(l.name));
+
 export const digitsOf = (s: string) => {
   const d = String(s ?? "").replace(/\D/g, "");
   return d.length === 9 ? `34${d}` : d;
@@ -109,11 +111,10 @@ export async function waChats(count = 150): Promise<WaChat[]> {
         // Whapi no siempre da el nombre del chat: se usa el del remitente del último mensaje recibido
         name: String(c.name ?? (c.last_message && !c.last_message.from_me ? (c.last_message.from_name ?? "") : "")),
         at: new Date(Number(c.timestamp ?? c.last_message?.timestamp ?? 0) * 1000).toISOString(),
-        // Un chat marcado a mano como no leído puede venir con contador 0 y la etiqueta «No leídos»
-        unread: Number(c.unread ?? 0) || (((c.labels ?? []) as any[]).some((l) => cleanLabel(l.name).toLowerCase() === "no leídos") ? -1 : 0),
+        unread: Number(c.unread ?? 0) || (labelNames(c).some((n) => sameLabel(n, UNREAD_LABEL)) ? -1 : 0),
         last: last ? last.text || (last.file ? `[${last.file.kind}]` : "") : "",
         lastFromMe: !!last?.fromMe,
-        labels: ((c.labels ?? []) as any[]).map((l) => cleanLabel(l.name)).filter(Boolean),
+        labels: labelNames(c).filter((n) => n && !sameLabel(n, UNREAD_LABEL)),
       };
     })
     .sort((a, b) => b.at.localeCompare(a.at));
@@ -140,9 +141,41 @@ export async function waSend(chatId: string, text: string, file?: File): Promise
   return toMessage(r.message ?? {});
 }
 
-/** Marca el chat como no leído (o leído) en WhatsApp, igual que desde el móvil. */
+/** Etiqueta con la que la app recuerda que un chat está pendiente de leer. */
+export const UNREAD_LABEL = "No leído";
+let labelCache: { at: number; list: { id: string; name: string }[] } | undefined;
+
+async function allLabels(force = false): Promise<{ id: string; name: string }[]> {
+  if (!force && labelCache && Date.now() - labelCache.at < 5 * 60_000) return labelCache.list;
+  const res = await json("/labels");
+  const list = ((Array.isArray(res) ? res : (res?.labels ?? [])) as any[]).map((l) => ({ id: String(l.id), name: cleanLabel(l.name) }));
+  labelCache = { at: Date.now(), list };
+  return list;
+}
+
+/**
+ * Marca el chat como no leído (o leído). WhatsApp no devuelve esa marca manual en la lista de chats,
+ * así que además se pone la etiqueta «No leído», que sí ve todo el equipo, en Mis chats y en Global.
+ */
 export async function waSetUnread(chatId: string, unread: boolean): Promise<void> {
-  await json(`/chats/${encodeURIComponent(chatId)}`, "PATCH", { mark_unread: unread });
+  await json(`/chats/${encodeURIComponent(chatId)}`, "PATCH", { mark_unread: unread }).catch(() => {});
+  let list = await allLabels();
+  let label = list.find((l) => sameLabel(l.name, UNREAD_LABEL));
+  if (!unread) {
+    if (label) await json(`/labels/${label.id}/${encodeURIComponent(chatId)}`, "DELETE").catch(() => {});
+    return;
+  }
+  if (!label) {
+    list = await allLabels(true);
+    label = list.find((l) => sameLabel(l.name, UNREAD_LABEL));
+  }
+  if (!label) {
+    const id = String(Math.max(0, ...list.map((l) => Number(l.id) || 0)) + 1);
+    await json("/labels", "POST", { id, name: UNREAD_LABEL, color: "salmon" });
+    label = { id, name: UNREAD_LABEL };
+    labelCache = undefined;
+  }
+  await json(`/labels/${label.id}/${encodeURIComponent(chatId)}`, "POST");
 }
 
 export async function waMarkRead(messageId: string): Promise<void> {

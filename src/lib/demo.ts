@@ -220,7 +220,7 @@ export const demo = {
   },
   rowSet(_kind: string, id: string, values: Record<string, unknown>): DemoRow {
     const row = demo.rowGet(id);
-    Object.assign(row, Object.fromEntries(Object.entries(values).filter(([, v]) => v !== undefined)));
+    Object.assign(row, Object.fromEntries(Object.entries(values).filter(([, v]) => v !== undefined)), { edited: new Date().toISOString() });
     return row;
   },
   rowDel(id: string) {

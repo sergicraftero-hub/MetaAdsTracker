@@ -43,9 +43,11 @@ interface ChatProps {
   onAssign?: (owner: string) => void;
   /** Marca el chat como no leído y lo cierra */
   onUnread?: () => void;
+  /** El chat estaba marcado a mano como no leído: al abrirlo se le quita la marca */
+  flagged?: boolean;
 }
 
-export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast, owner, comerciales, onAssign, onUnread }: ChatProps) {
+export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast, owner, comerciales, onAssign, onUnread, flagged }: ChatProps) {
   const [messages, setMessages] = useState<WaMessage[] | null>(null);
   const [error, setError] = useState("");
   const [text, setText] = useState("");
@@ -58,13 +60,14 @@ export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast, own
   const load = useCallback(
     async (read: boolean) => {
       try {
-        const r = await getJson<{ messages: WaMessage[] }>(`/api/whatsapp/chat?id=${encodeURIComponent(chat)}${read ? "&leer=1" : ""}`);
+        const r = await getJson<{ messages: WaMessage[] }>(`/api/whatsapp/chat?id=${encodeURIComponent(chat)}${read ? `&leer=1${flagged ? "&marcado=1" : ""}` : ""}`);
         setMessages(r.messages);
         setError("");
       } catch (e) {
         setError((e as Error).message);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [chat],
   );
 
@@ -196,6 +199,7 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
   const [inbox, setInbox] = useState<Inbox | null>(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState<string | null>(null);
+  const [flagged, setFlagged] = useState(false);
   const [q, setQ] = useState("");
   const myCode = data.me.code;
   const [scope, setScope] = useState<"mios" | "todos">(myCode ? "mios" : "todos");
@@ -306,6 +310,7 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
               <button
                 className={c.id === open ? "row-main chat-item on" : "row-main chat-item"}
                 onClick={() => {
+                  setFlagged(c.unread < 0);
                   setOpen(c.id);
                   setInbox((b) => (b ? { ...b, chats: b.chats.map((x) => (x.id === c.id ? { ...x, unread: 0 } : x)) } : b));
                 }}
@@ -343,6 +348,7 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
             comerciales={data.comerciales}
             onAssign={(o) => assign(open, o)}
             onUnread={() => markUnread(open)}
+            flagged={flagged}
           />
         ) : (
           <p className="muted empty-line">Elige un chat de la lista.</p>

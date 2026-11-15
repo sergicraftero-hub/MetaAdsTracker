@@ -546,18 +546,35 @@ export default function Portal({ data, toast }: Props) {
 
 /* ============================== Campana de dirección ============================== */
 
-/** Avisos de dirección arriba a la derecha: solicitudes pendientes, con aprobar y rechazar a un clic. */
-export function Bell({ toast }: { toast: Toast }) {
+interface News {
+  id: string;
+  kind: string;
+  text: string;
+  at: string;
+}
+const SEEN_KEY = "but-calls-avisos-vistos";
+
+/**
+ * Campana de avisos, arriba a la derecha. Dirección ve las solicitudes pendientes y las aprueba a un clic.
+ * Cada trabajador ve sus solicitudes resueltas y sus nóminas nuevas.
+ */
+export function Bell({ toast, onGoPortal }: { toast: Toast; onGoPortal: () => void }) {
   const [pending, setPending] = useState<Leave[]>([]);
+  const [news, setNews] = useState<News[]>([]);
+  const [seen, setSeen] = useState(0);
   const [open, setOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const r = await api<{ requests: Leave[] }>("/api/portal/solicitudes");
-      setPending(r.requests.filter((x) => x.status === "pendiente"));
+      const r = await api<{ pending: Leave[]; news: News[] }>("/api/portal/avisos");
+      setPending(r.pending);
+      setNews(r.news);
     } catch {}
   }, []);
   useEffect(() => {
+    try {
+      setSeen(Number(localStorage.getItem(SEEN_KEY)) || 0);
+    } catch {}
     load();
     const t = setInterval(() => document.visibilityState === "visible" && load(), 60_000);
     window.addEventListener("portal-changed", load);
@@ -567,18 +584,33 @@ export function Bell({ toast }: { toast: Toast }) {
     };
   }, [load]);
 
+  const fresh = news.filter((n) => new Date(n.at).getTime() > seen);
+  const count = pending.length + fresh.length;
+
+  function toggle() {
+    if (open && fresh.length) {
+      // Al cerrar el panel, los avisos informativos quedan como vistos en este dispositivo
+      const now = Date.now();
+      setSeen(now);
+      try {
+        localStorage.setItem(SEEN_KEY, String(now));
+      } catch {}
+    }
+    setOpen(!open);
+  }
+
   return (
     <div className="bell">
-      <button className="btn small bell-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={`Avisos: ${pending.length} solicitudes pendientes`}>
+      <button className="btn small bell-btn" onClick={toggle} aria-expanded={open} aria-label={`Avisos: ${count} nuevos`}>
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M6 9a6 6 0 1 1 12 0c0 6 2.5 7 2.5 7h-17S6 15 6 9ZM10 20a2 2 0 0 0 4 0" />
         </svg>
-        {pending.length > 0 && <span className="badge">{pending.length}</span>}
+        {count > 0 && <span className="badge">{count}</span>}
       </button>
       {open && (
         <div className="card bell-panel" role="dialog" aria-label="Avisos">
           <h2>Avisos</h2>
-          {pending.length === 0 && <p className="muted hint">No hay nada pendiente de aprobar.</p>}
+          {pending.length === 0 && news.length === 0 && <p className="muted hint">No tienes avisos.</p>}
           <ul className="bonus-admin">
             {pending.map((r) => (
               <li key={r.id}>
@@ -591,6 +623,20 @@ export function Bell({ toast }: { toast: Toast }) {
                   <button className="btn primary small" onClick={() => resolveLeave(r.id, "aprobada", toast)}>Aprobar</button>
                   <button className="btn small" onClick={() => resolveLeave(r.id, "rechazada", toast)}>Rechazar</button>
                 </div>
+              </li>
+            ))}
+            {news.map((n) => (
+              <li key={n.id} className={new Date(n.at).getTime() > seen ? "" : "off"}>
+                <button
+                  className="news"
+                  onClick={() => {
+                    toggle();
+                    onGoPortal();
+                  }}
+                >
+                  <span>{n.kind === "nomina" ? "📄" : n.kind === "aprobada" ? "✅" : "❌"} {n.text}</span>
+                  <span className="muted hint">{new Date(n.at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</span>
+                </button>
               </li>
             ))}
           </ul>

@@ -211,7 +211,7 @@ export default function App() {
             )}
             <button className="btn small only-desktop" onClick={load} title="Actualizar">Actualizar</button>
             <button className="btn primary small" onClick={() => setCreating(true)}>+ Lead</button>
-            {admin && <Bell toast={toast} />}
+            <Bell toast={toast} onGoPortal={() => setTab("portal")} />
             <button
               className="btn small only-mobile"
               onClick={async () => {

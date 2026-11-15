@@ -24,7 +24,8 @@ export const GET = handle(async (req: Request) => {
   const lastIn = [...messages].reverse().find((m) => !m.fromMe);
   if (new URL(req.url).searchParams.get("leer") === "1") {
     if (lastIn) await store.waMarkRead(lastIn.id).catch(() => {});
-    await store.waSetUnread(id, false).catch(() => {});
+    // Solo si el chat estaba marcado a mano como no leído, se le quita la marca
+    if (new URL(req.url).searchParams.get("marcado") === "1") await store.waSetUnread(id, false).catch(() => {});
   }
   return NextResponse.json({ id, messages });
 });

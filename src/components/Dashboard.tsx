@@ -1,9 +1,10 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { isClosed, stageOf } from "@/lib/fields";
-import type { Lead, LeadsPayload } from "@/lib/types";
+import type { CallLog, Lead, LeadsPayload } from "@/lib/types";
 import Activity from "./Activity";
-import { dayKey, entryTime, isDue, pretty, str } from "./util";
+import { BonusCards } from "./Bonuses";
+import { api, dayKey, entryTime, isDue, pretty, str } from "./util";
 
 type Range = "7" | "30" | "90" | "365" | "max" | "custom";
 const RANGES: [Range, string][] = [
@@ -125,7 +126,41 @@ function buckets(leads: Lead[], from: Date, to: Date): { unit: string; list: Buc
   return { unit, list };
 }
 
+const NO_CONTACT = new Set(["ILOCALIZABLE", "NUMERO ERRONEO", "SALTADO", ""]);
+
+/** Panel del comercial: solo lo suyo y solo lo básico, para no agobiar. */
+function MyDay({ data }: { data: LeadsPayload }) {
+  const [calls, setCalls] = useState<CallLog[] | null>(null);
+  useEffect(() => {
+    api<{ calls: CallLog[] }>("/api/llamadas?dias=31")
+      .then((r) => setCalls(r.calls))
+      .catch(() => setCalls([]));
+  }, [data.syncedAt]);
+
+  const today = dayKey(new Date());
+  const month = today.slice(0, 7);
+  const real = (calls ?? []).filter((c) => c.result !== "SALTADO");
+  const ofToday = real.filter((c) => dayKey(new Date(c.at)) === today);
+  const signed = (list: CallLog[]) => list.filter((c) => stageOf(c.result) === "ganado").length;
+
+  return (
+    <div className="stack narrow">
+      <p className="muted">Hola, {data.me.name.split(" ")[0]}. Así va tu día.</p>
+      <div className="tiles">
+        <Tile label="Llamadas hoy" value={calls ? ofToday.length : "…"} />
+        <Tile label="Contactos hoy" value={calls ? ofToday.filter((c) => !NO_CONTACT.has(c.result.toUpperCase())).length : "…"} sub="llamadas con respuesta" />
+        <Tile hero label="Firmados este mes" value={calls ? signed(real.filter((c) => dayKey(new Date(c.at)).startsWith(month))) : "…"} sub={calls ? `${signed(ofToday)} hoy` : undefined} />
+      </div>
+      <BonusCards data={data} refreshKey={data.syncedAt} />
+    </div>
+  );
+}
+
 export default function Dashboard({ data }: { data: LeadsPayload }) {
+  return data.me.role === "admin" ? <ManagerDashboard data={data} /> : <MyDay data={data} />;
+}
+
+function ManagerDashboard({ data }: { data: LeadsPayload }) {
   const [range, setRange] = useState<Range>("30");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");

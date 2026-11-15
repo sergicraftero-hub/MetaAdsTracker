@@ -695,10 +695,10 @@ export async function waAuthors(chatId: string): Promise<Record<string, string>>
 
 export type PortalTable = "fichajes" | "solicitudes" | "nominas";
 /** Fila genérica: `id`, `created` y los valores de sus columnas por nombre de propiedad de Notion. */
-export type Row = { id: string; created: string } & Record<string, Value | undefined>;
+export type Row = { id: string; created: string; edited?: string } & Record<string, Value | undefined>;
 
 function toRow(page: any): Row {
-  const row: Row = { id: page.id, created: page.created_time };
+  const row: Row = { id: page.id, created: page.created_time, edited: page.last_edited_time };
   for (const [name, p] of Object.entries<any>(page.properties ?? {})) {
     if (p.type === "files") {
       row[name] = p.files?.[0]?.name ?? null;

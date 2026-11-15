@@ -151,16 +151,18 @@ export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
         <section className="card call-start">
           <h2 className="lead-name">{active && !busy ? "No queda nadie por llamar" : "Modo llamadas"}</h2>
           <p className="muted">
-            Los leads salen de uno en uno. Al marcar el resultado de la llamada se guarda en Notion y aparece el siguiente: dos
-            antiguos sin llamar, uno nuevo, y las rellamadas a su hora. Cuando se acaban los leads sin llamar, entran los
-            ilocalizables.
+            {data.me.role === "admin"
+              ? "Los leads salen de uno en uno. Al marcar el resultado de la llamada se guarda en Notion y aparece el siguiente: dos antiguos sin llamar, uno nuevo, y las rellamadas a su hora. Cuando se acaban los leads sin llamar, entran los ilocalizables."
+              : "Te va saliendo un lead cada vez. Llama, marca el resultado y aparece el siguiente."}
           </p>
-          <dl className="call-counts">
-            <div><dt>Rellamadas que tocan</dt><dd>{pools.timed.length + pools.backlog.length}</dd></div>
-            <div><dt>Sin llamar</dt><dd>{pools.fresh.length}</dd></div>
-            <div><dt>Ilocalizables</dt><dd>{pools.iloc.length}</dd></div>
-            <div><dt>Hechas hoy en esta sesión</dt><dd>{session.done}</dd></div>
-          </dl>
+          {data.me.role === "admin" && (
+            <dl className="call-counts">
+              <div><dt>Rellamadas que tocan</dt><dd>{pools.timed.length + pools.backlog.length}</dd></div>
+              <div><dt>Sin llamar</dt><dd>{pools.fresh.length}</dd></div>
+              <div><dt>Ilocalizables</dt><dd>{pools.iloc.length}</dd></div>
+              <div><dt>Hechas hoy en esta sesión</dt><dd>{session.done}</dd></div>
+            </dl>
+          )}
           {!data.logReady && (
             <p className="notice">
               Las llamadas aún no se registran para las métricas. Para activarlo, crea en Notion una página llamada «BUT Calls» y
