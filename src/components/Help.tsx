@@ -170,6 +170,7 @@ const MANUAL: { title: string; items: [string, string][] }[] = [
       ["Registrar intento", "Rellena 1ER/2DO/3ER_INTENTO con la fecha y hora, suma INTENTOS y pone FECHA_CONTACTO la primera vez."],
       ["Notas y contrato", "Son los comentarios de la página del lead en Notion, con el nombre de quien escribe delante. El contrato va como archivo adjunto de un comentario (hasta 4 MB)."],
       ["Asignar varios leads", "En Leads → «Asignar varios», marcas los leads (o todos los de la lista filtrada) y eliges el comercial."],
+      ["Abrir en Notion", "El botón «Abrir en Notion» de la ficha solo lo ve dirección. A los comerciales no se les envía el enlace a Notion."],
       ["Qué ve cada uno", "Dirección ve todo. Un comercial ve sus leads, los que no tienen comercial, las rellamadas pendientes de todo el equipo y lo sin contactar de compañeros que hoy no han fichado."],
     ],
   },

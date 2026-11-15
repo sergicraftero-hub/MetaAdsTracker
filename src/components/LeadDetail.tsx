@@ -66,7 +66,7 @@ export default function LeadDetail({ lead, data, actions, onClose }: Props) {
       <aside className="sheet" role="dialog" aria-modal="true" aria-label={`Ficha de ${str(f.nombre)}`}>
         <header className="sheet-head">
           <button className="btn small" onClick={onClose}><Icon name="left" size={16} /> Volver</button>
-          {lead.url && (
+          {admin && lead.url && (
             <a className="btn small" href={lead.url} target="_blank" rel="noreferrer">Abrir en Notion</a>
           )}
         </header>

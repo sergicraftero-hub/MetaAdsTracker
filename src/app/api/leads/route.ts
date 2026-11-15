@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { HttpError, handle, requireSession } from "@/lib/auth";
 import { canSee } from "@/lib/fields";
-import { cleanFields } from "@/lib/leadRules";
+import { cleanFields, forUser } from "@/lib/leadRules";
 import { isDemo, store, unassignedVisible } from "@/lib/store";
 import type { LeadsPayload } from "@/lib/types";
 import { working } from "@/lib/working";
@@ -22,7 +22,8 @@ export const GET = handle(async () => {
   const comerciales = new Set<string>((schema.comercial.options ?? []).map((o) => o.name));
   for (const u of users) if (u.code && u.active) comerciales.add(u.code);
   const payload: LeadsPayload = {
-    leads: leads.filter((l) => canSee(me, l, unassignedVisible(), codes)),
+    // El enlace a Notion solo se envía a dirección: los comerciales no deben entrar en la base
+    leads: leads.filter((l) => canSee(me, l, unassignedVisible(), codes)).map((l) => forUser(me, l)),
     working: codes,
     clockedIn: w.ready ? w.emails.has(me.email) : null,
     clock: mine ? { start: mine.start, breaks: mine.breaks, hours: w.hours.get(me.email) ?? 0 } : null,
@@ -44,5 +45,5 @@ export const POST = handle(async (req: Request) => {
   if (!fields.nombre || !fields.telefono) throw new HttpError(400, "Nombre y teléfono son obligatorios");
   fields.fecha = new Date().toISOString();
   if (me.role === "comercial" && me.code) fields.comercial = me.code;
-  return NextResponse.json({ lead: await store.createLead(fields) });
+  return NextResponse.json({ lead: forUser(me, await store.createLead(fields)) });
 });

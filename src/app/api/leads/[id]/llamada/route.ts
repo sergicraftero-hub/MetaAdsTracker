@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { handle, requireSession } from "@/lib/auth";
 import { stageOf } from "@/lib/fields";
-import { applyLostRule, attemptFields, cleanFields, visibleLead } from "@/lib/leadRules";
+import { applyLostRule, attemptFields, cleanFields, forUser, visibleLead } from "@/lib/leadRules";
 import { store } from "@/lib/store";
 
 interface Body {
@@ -62,5 +62,5 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
     logged = false;
   }
   await store.unlockLead(id, me.email).catch(() => {});
-  return NextResponse.json({ lead, logged });
+  return NextResponse.json({ lead: forUser(me, lead), logged });
 });

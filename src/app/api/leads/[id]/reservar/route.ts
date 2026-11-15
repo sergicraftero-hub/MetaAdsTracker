@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { HttpError, handle, requireSession } from "@/lib/auth";
 import { canSee } from "@/lib/fields";
-import { visibleLead } from "@/lib/leadRules";
+import { forUser, visibleLead } from "@/lib/leadRules";
 import { store, unassignedVisible } from "@/lib/store";
 import { working } from "@/lib/working";
 
@@ -25,5 +25,5 @@ export const POST = handle(async (_req: Request, ctx: { params: Promise<{ id: st
   }
   // Reservar no asigna: el lead pasa a ser de quien llama cuando pulsa «Llamar» o guarda el resultado.
   // `edited` sirve al cliente para saber si alguien lo acaba de llamar.
-  return NextResponse.json({ lead: fresh, edited: fresh.edited });
+  return NextResponse.json({ lead: forUser(me, fresh), edited: fresh.edited });
 });

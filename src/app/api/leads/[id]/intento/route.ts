@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { handle, requireSession } from "@/lib/auth";
-import { applyLostRule, attemptFields, cleanFields, visibleLead } from "@/lib/leadRules";
+import { applyLostRule, attemptFields, cleanFields, forUser, visibleLead } from "@/lib/leadRules";
 import { store } from "@/lib/store";
 
 /** Registra un intento de contacto: hora, contador, primer contacto y (opcional) estado y rellamada. */
@@ -17,5 +17,5 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
   await store
     .addLog({ at: new Date().toISOString(), user: me.name, code: me.code, leadId: id, leadName: String(current.f.nombre ?? ""), source: "ficha", result: String(lead.f.estado ?? ""), seconds: 0, called: false, away: 0, phone: String(current.f.telefono ?? "") })
     .catch((e) => console.error("No se pudo registrar el intento", e));
-  return NextResponse.json({ lead });
+  return NextResponse.json({ lead: forUser(me, lead) });
 });

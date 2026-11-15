@@ -69,3 +69,6 @@ export function attemptFields(lead: Lead, me: Session, schema: Schema): Partial<
   if (!lead.f.comercial && me.code) out.comercial = me.code;
   return out;
 }
+
+/** El lead tal como se le envía a este usuario: el enlace a Notion solo va a dirección. */
+export const forUser = (me: Session, lead: Lead): Lead => (me.role === "admin" ? lead : { ...lead, url: undefined });
