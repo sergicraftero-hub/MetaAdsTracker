@@ -12,6 +12,7 @@ interface Props {
   data: LeadsPayload;
   replaceLead: (l: Lead) => void;
   toast: (msg: string, error?: boolean) => void;
+  onChat: (lead: Lead) => void;
 }
 
 // El estado de la cola vive fuera del componente para que no se pierda al cambiar de pestaña
@@ -28,7 +29,7 @@ interface Current {
 const pad = (n: number) => String(n).padStart(2, "0");
 const clock = (s: number) => `${Math.floor(s / 60)}:${pad(s % 60)}`;
 
-export default function CallMode({ data, replaceLead, toast }: Props) {
+export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
   const [active, setActive] = useState(false);
   const [cur, setCur] = useState<Current | null>(null);
   const [busy, setBusy] = useState(false);
@@ -220,7 +221,11 @@ export default function CallMode({ data, replaceLead, toast }: Props) {
           <CallButton lead={lead} className="btn primary big" toast={toast} onCall={() => setCur({ ...cur, called: true })}>
             Llamar
           </CallButton>
-          <a className="btn big" href={waHref(f.telefono)} target="_blank" rel="noreferrer">WhatsApp</a>
+          {data.waReady ? (
+            <button className="btn big" onClick={() => onChat(lead)}>WhatsApp</button>
+          ) : (
+            <a className="btn big" href={waHref(f.telefono)} target="_blank" rel="noreferrer">WhatsApp</a>
+          )}
         </div>
 
         <dl className="info">

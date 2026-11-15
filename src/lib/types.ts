@@ -83,6 +83,29 @@ export interface Comment {
   files: { name: string; url: string }[];
 }
 
+/** Conversación del WhatsApp compartido. */
+export interface WaChat {
+  id: string;
+  phone: string;
+  name: string;
+  at: string;
+  unread: number;
+  last: string;
+  lastFromMe: boolean;
+}
+
+export interface WaMessage {
+  id: string;
+  chatId: string;
+  fromMe: boolean;
+  at: string;
+  text: string;
+  status?: string;
+  file?: { id: string; name: string; mime: string; kind: string };
+  /** Quién del equipo lo envió desde la app (si se sabe) */
+  by?: string;
+}
+
 export type BonusMetric = "firmados" | "llamadas" | "contactos";
 export type BonusPeriod = "dia" | "semana" | "mes";
 
@@ -135,6 +158,8 @@ export interface LeadsPayload {
   comerciales: string[];
   demo: boolean;
   syncedAt: string;
+  /** ¿Está conectado el WhatsApp compartido? */
+  waReady: boolean;
   /** ¿Existe la base de datos donde se registran las llamadas? */
   logReady: boolean;
 }

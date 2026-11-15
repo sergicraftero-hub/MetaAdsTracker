@@ -10,6 +10,7 @@ CRM de seguimiento comercial de leads. Es una app web instalable (PWA): el mismo
 - **Ficha**: llamar, WhatsApp y email; registrar intento (rellena `1ER/2DO/3ER_INTENTO`, `INTENTOS` y `FECHA_CONTACTO`); cambiar estado; programar rellamada; asignar comercial; notas y contrato.
 - **Notas y contrato**: son los comentarios de la página del lead en Notion, igual que los usa el equipo a mano. La app los lee y añade nuevos (con el nombre de quien escribe delante), y el contrato se sube como archivo adjunto de un comentario (hasta 4 MB).
 - **Llamar desde el ordenador**: en un ordenador, el botón «Llamar» envía un aviso al móvil o tablet donde el mismo usuario tenga la app abierta; al aceptarlo, el teléfono marca el número.
+- **WhatsApp**: bandeja del número compartido del equipo a través de Whapi.Cloud, igual para todos los usuarios: lista de chats, conversación, envío de texto y archivos. Cada mensaje enviado desde la app indica quién lo escribió. Desde la ficha del lead y el modo Llamar, el botón WhatsApp abre el chat integrado con ese lead y marca la casilla `WHATSAPP`.
 - **Embudo**: tablero por estado; en ordenador se arrastra un lead para cambiarlo de estado.
 - **Panel**: tasas de conversión (a firmado, de contacto y de cierre) para 7, 30 y 90 días, 1 año, máximo o un periodo a medida, filtrando por uno o varios comerciales; evolución por día, semana o mes; desglose por comercial, estado, compañía y gasto. Debajo, la actividad de llamadas por persona.
 - **Equipo** (solo dirección): usuarios (alta, edición, acceso y contraseña), bonos (uno para todo el equipo y otros individuales, con premio, meta y periodo) y comprobación de la conexión con Notion.
@@ -35,6 +36,13 @@ La app guarda sus propios datos en bases de datos de Notion que crea ella sola d
 En *Equipo → Añadir usuario* se da de alta a cada comercial con su código de la columna `COMERCIAL`. Las contraseñas se guardan cifradas (hash scrypt), nunca en claro.
 
 La integración de Notion necesita permiso para leer y escribir contenido, leer e insertar comentarios y leer usuarios.
+
+### WhatsApp compartido (opcional)
+
+1. En [whapi.cloud](https://whapi.cloud) crea un canal y escanea el QR con el teléfono del número del equipo.
+2. Copia el token del canal en la variable `WHAPI_TOKEN` de Vercel y vuelve a desplegar.
+
+Sin `WHAPI_TOKEN` la pestaña WhatsApp explica cómo conectarlo y los botones de WhatsApp abren el WhatsApp del dispositivo. Whapi es una pasarela no oficial sobre WhatsApp Web: WhatsApp puede bloquear un número que escriba de forma masiva a contactos que no le han escrito antes.
 
 ### Instalar la app
 

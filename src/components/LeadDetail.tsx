@@ -85,7 +85,11 @@ export default function LeadDetail({ lead, data, actions, onClose }: Props) {
 
           <div className="contact">
             <CallButton lead={lead} toast={actions.toast}>Llamar</CallButton>
-            <a className="btn" href={waHref(f.telefono)} target="_blank" rel="noreferrer">WhatsApp</a>
+            {data.waReady ? (
+              <button className="btn" onClick={() => actions.chat(lead)}>WhatsApp</button>
+            ) : (
+              <a className="btn" href={waHref(f.telefono)} target="_blank" rel="noreferrer">WhatsApp</a>
+            )}
             {f.email && <a className="btn" href={`mailto:${str(f.email)}`}>Email</a>}
           </div>
 

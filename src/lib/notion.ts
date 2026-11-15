@@ -155,7 +155,7 @@ interface Cache {
   log: { entries: Map<string, CallLog>; from: number; syncAt: number };
   people?: { at: number; names: Map<string, string> };
 }
-type AppDb = "users" | "log" | "alerts" | "bonus";
+type AppDb = "users" | "log" | "alerts" | "bonus" | "wa";
 const g = globalThis as unknown as { __crmNotion?: Cache };
 const cache: Cache = (g.__crmNotion ??= { leads: new Map(), fullAt: 0, syncAt: 0, appDbs: {}, log: { entries: new Map(), from: Infinity, syncAt: 0 } });
 
@@ -309,6 +309,12 @@ const APP_DBS: Record<AppDb, { env: string; title: string; titleProp: string; pr
       Para: { rich_text: {} },
       Activo: { checkbox: {} },
     },
+  },
+  wa: {
+    env: "NOTION_WA_DB_ID",
+    title: "BUT Calls · WhatsApp enviados",
+    titleProp: "Mensaje",
+    props: { Chat: { rich_text: {} }, Usuario: { rich_text: {} } },
   },
   alerts: {
     env: "NOTION_ALERTS_DB_ID",
@@ -626,4 +632,29 @@ export async function saveBonus(id: string | null, b: Partial<Bonus>): Promise<B
 
 export async function deleteBonus(id: string): Promise<void> {
   await api(`pages/${id}`, "PATCH", { archived: true });
+}
+
+/* ---------- WhatsApp: quién del equipo envió cada mensaje ---------- */
+
+export async function addWaAuthor(messageId: string, chatId: string, user: string): Promise<void> {
+  const dbId = await appDb("wa");
+  if (!dbId || !messageId) return;
+  await api("pages", "POST", {
+    parent: { database_id: dbId },
+    properties: { Mensaje: { title: richText(messageId) }, Chat: text(chatId), Usuario: text(user) },
+  });
+}
+
+/** Mapa «id de mensaje → usuario» de un chat. */
+export async function waAuthors(chatId: string): Promise<Record<string, string>> {
+  const dbId = await appDb("wa");
+  if (!dbId) return {};
+  const res = await api(`databases/${dbId}/query`, "POST", {
+    page_size: 100,
+    filter: { property: "Chat", rich_text: { equals: chatId } },
+    sorts: [{ timestamp: "created_time", direction: "descending" }],
+  });
+  const out: Record<string, string> = {};
+  for (const p of res.results as any[]) out[String(readProp(p.properties?.Mensaje) ?? "")] = String(readProp(p.properties?.Usuario) ?? "");
+  return out;
 }

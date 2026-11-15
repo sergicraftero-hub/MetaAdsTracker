@@ -1,7 +1,8 @@
 /** Punto único de acceso a los datos: Notion, o datos de demostración si no hay token. */
 import { demo, demoSchema } from "./demo";
 import * as notion from "./notion";
-import type { Bonus, CallAlert, CallLog, Comment, Fields, Lead, Schema, StoredUser } from "./types";
+import type { Bonus, CallAlert, CallLog, Comment, Fields, Lead, Schema, StoredUser, WaChat, WaMessage } from "./types";
+import * as whapi from "./whapi";
 
 export const isDemo = () => !process.env.NOTION_TOKEN;
 
@@ -31,6 +32,25 @@ export const store = {
   listBonuses: async (): Promise<Bonus[]> => (isDemo() ? demo.listBonuses() : notion.listBonuses()),
   saveBonus: async (id: string | null, b: Partial<Bonus>): Promise<Bonus> => (isDemo() ? demo.saveBonus(id, b) : notion.saveBonus(id, b)),
   deleteBonus: async (id: string): Promise<void> => (isDemo() ? demo.deleteBonus(id) : notion.deleteBonus(id)),
+
+  /* WhatsApp compartido */
+  waConfigured: (): boolean => isDemo() || whapi.waConfigured(),
+  waHealth: async () => (isDemo() ? { ok: true, status: "AUTH", phone: "34600000000" } : whapi.waHealth()),
+  waChats: async (): Promise<WaChat[]> => (isDemo() ? demo.waChats() : whapi.waChats()),
+  waMessages: async (chatId: string): Promise<WaMessage[]> => {
+    if (isDemo()) return demo.waMessages(chatId);
+    const [messages, authors] = await Promise.all([whapi.waMessages(chatId), notion.waAuthors(chatId).catch(() => ({}) as Record<string, string>)]);
+    return messages.map((m) => (authors[m.id] ? { ...m, by: authors[m.id] } : m));
+  },
+  waSend: async (chatId: string, text: string, file: File | undefined, by: string): Promise<WaMessage> => {
+    if (isDemo()) return demo.waSend(chatId, text, file, by);
+    const m = await whapi.waSend(chatId, text, file);
+    await notion.addWaAuthor(m.id, chatId, by).catch((e) => console.error("No se pudo anotar el autor del WhatsApp", e));
+    return { ...m, by };
+  },
+  waMarkRead: async (messageId: string): Promise<void> => {
+    if (!isDemo()) await whapi.waMarkRead(messageId);
+  },
 
   logConfigured: async (): Promise<boolean> => isDemo() || notion.logConfigured(),
   addLog: async (e: Omit<CallLog, "id">): Promise<CallLog | null> => (isDemo() ? demo.addLog(e) : notion.addLog(e)),

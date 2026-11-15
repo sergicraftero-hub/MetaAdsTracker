@@ -25,6 +25,7 @@ export const GET = handle(async () => {
     demo: isDemo(),
     syncedAt: new Date(syncedAt).toISOString(),
     logReady,
+    waReady: store.waConfigured(),
   };
   return NextResponse.json(payload);
 });

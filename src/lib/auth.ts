@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { NotionError } from "./notion";
+import { WhapiError } from "./whapi";
 import { checkPassword, safeEqual } from "./password";
 import { isDemo, store } from "./store";
 import type { Session } from "./types";
@@ -101,7 +102,7 @@ export function handle<A extends unknown[]>(fn: (...args: A) => Promise<Response
     try {
       return await fn(...args);
     } catch (e) {
-      if (e instanceof HttpError || e instanceof NotionError) {
+      if (e instanceof HttpError || e instanceof NotionError || e instanceof WhapiError) {
         return NextResponse.json({ error: e.message }, { status: e.status });
       }
       console.error(e);

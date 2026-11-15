@@ -5,7 +5,7 @@
 import { NOTION_NAMES } from "./fields";
 import { hashPassword } from "./password";
 import { FIELD_KEYS } from "./types";
-import type { Bonus, CallAlert, CallLog, Comment, Fields, Lead, Option, Schema, StoredUser } from "./types";
+import type { Bonus, CallAlert, CallLog, Comment, Fields, Lead, Option, Schema, StoredUser, WaChat, WaMessage } from "./types";
 
 const ESTADOS: Option[] = [
   { name: "RELLAMAR", color: "orange" },
@@ -106,6 +106,7 @@ interface DemoState {
   comments: Map<string, Comment[]>;
   alerts: (CallAlert & { to: string; at: number })[];
   bonuses: Bonus[];
+  wa: Map<string, WaMessage[]>;
   n: number;
 }
 
@@ -143,6 +144,14 @@ function state(): DemoState {
     log: seedLog(leads),
     comments: new Map(),
     alerts: [],
+    wa: new Map(
+      leads.slice(9, 14).map((l, i) => {
+        const id = `${String(l.f.telefono).replace(/\D/g, "")}@s.whatsapp.net`;
+        const t = Date.now() - (i + 1) * 47 * 60_000;
+        const msg = (n: number, fromMe: boolean, text: string, by?: string): WaMessage => ({ id: `wa-${i}-${n}`, chatId: id, fromMe, at: new Date(t + n * 90_000).toISOString(), text, by, status: fromMe ? "read" : undefined });
+        return [id, [msg(0, true, "Hola, te escribo de O2 por la oferta de fibra y móvil que pediste.", "ANA"), msg(1, false, "Hola! Sí, ¿cuánto sería con la tele?"), ...(i % 2 ? [msg(2, true, "Te paso la propuesta en un momento.", "LUIS")] : [])]];
+      }),
+    ),
     bonuses: [
       { id: "b-1", title: "Reto de la semana", prize: "Desayuno para todo el equipo", metric: "firmados", goal: 25, period: "semana", para: "", active: true },
       { id: "b-2", title: "Sprint de Ana", prize: "Tarde libre el viernes", metric: "llamadas", goal: 30, period: "dia", para: "ANA", active: true },
@@ -178,6 +187,24 @@ export const demo = {
     return entry;
   },
   getLog: (from: number) => state().log.filter((e) => new Date(e.at).getTime() >= from),
+  waChats(): WaChat[] {
+    const st = state();
+    const names = new Map([...st.leads.values()].map((l) => [String(l.f.telefono).replace(/\D/g, ""), String(l.f.nombre)]));
+    return [...st.wa.entries()]
+      .map(([id, ms]) => {
+        const last = ms[ms.length - 1];
+        const phone = id.replace(/@.*/, "");
+        return { id, phone, name: names.get(phone) ?? "", at: last.at, unread: last.fromMe ? 0 : 1, last: last.text || "[Documento]", lastFromMe: last.fromMe };
+      })
+      .sort((a, b) => b.at.localeCompare(a.at));
+  },
+  waMessages: (chatId: string) => state().wa.get(chatId) ?? [],
+  waSend(chatId: string, text: string, file: File | undefined, by: string): WaMessage {
+    const st = state();
+    const m: WaMessage = { id: `wa-${++st.n}`, chatId, fromMe: true, at: new Date().toISOString(), text, by, status: "sent", file: file ? { id: "demo", name: file.name, mime: file.type, kind: "Documento" } : undefined };
+    st.wa.set(chatId, [...(st.wa.get(chatId) ?? []), m]);
+    return m;
+  },
   listBonuses: () => state().bonuses,
   saveBonus(id: string | null, b: Partial<Bonus>): Bonus {
     const st = state();

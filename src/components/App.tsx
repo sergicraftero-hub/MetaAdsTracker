@@ -9,19 +9,21 @@ import Team from "./Team";
 import { api } from "./util";
 import { PhoneAlerts } from "./CallButton";
 import { Agenda, LeadList, Pipeline } from "./views";
+import WhatsApp, { ChatView } from "./WhatsApp";
 
-type Tab = "llamar" | "hoy" | "leads" | "embudo" | "panel" | "equipo";
+type Tab = "llamar" | "hoy" | "leads" | "whatsapp" | "embudo" | "panel" | "equipo";
 const CACHE_KEY = "but-calls-v1";
 
 const ICONS: Record<Tab, string> = {
   llamar: "M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z",
   hoy: "M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
   leads: "M4 6h16M4 12h16M4 18h10",
+  whatsapp: "M21 12a8.5 8.5 0 0 1-12.6 7.4L3 21l1.7-5.2A8.5 8.5 0 1 1 21 12Z",
   embudo: "M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v6h-4z",
   panel: "M4 20V10M10 20V4M16 20v-7M22 20H2",
   equipo: "M16 19v-1a4 4 0 0 0-8 0v1M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM20 19v-1a3 3 0 0 0-2-2.8M4 19v-1a3 3 0 0 1 2-2.8",
 };
-const TITLES: Record<Tab, string> = { llamar: "Llamar", hoy: "Agenda", leads: "Leads", embudo: "Embudo", panel: "Panel", equipo: "Equipo" };
+const TITLES: Record<Tab, string> = { llamar: "Llamar", hoy: "Agenda", leads: "Leads", whatsapp: "WhatsApp", embudo: "Embudo", panel: "Panel", equipo: "Equipo" };
 
 export interface Actions {
   open: (id: string) => void;
@@ -29,6 +31,8 @@ export interface Actions {
   attempt: (id: string, fields?: Partial<Fields>) => Promise<void>;
   toast: (msg: string, error?: boolean) => void;
   replace: (lead: Lead) => void;
+  /** Abre el chat de WhatsApp integrado con este lead */
+  chat: (lead: Lead) => void;
 }
 
 export default function App() {
@@ -38,6 +42,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("llamar");
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [chatLead, setChatLead] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<{ msg: string; error: boolean } | null>(null);
   const pending = useRef(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -134,6 +139,7 @@ export default function App() {
       open,
       toast,
       replace: replaceLead,
+      chat: (lead) => setChatLead(lead.id),
       save: (id, fields) => mutate(id, fields, `/api/leads/${id}`, "PATCH", "Guardado en Notion"),
       attempt: (id, fields = {}) => mutate(id, fields, `/api/leads/${id}/intento`, "POST", "Intento registrado"),
     }),
@@ -156,7 +162,7 @@ export default function App() {
   }
 
   const admin = data.me.role === "admin";
-  const tabs: Tab[] = admin ? ["llamar", "hoy", "leads", "embudo", "panel", "equipo"] : ["llamar", "hoy", "leads", "embudo", "panel"];
+  const tabs: Tab[] = admin ? ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel", "equipo"] : ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel"];
   const lead = selected ? data.leads.find((l) => l.id === selected) : undefined;
 
   return (
@@ -214,9 +220,10 @@ export default function App() {
             </button>
           </div>
         </header>
-        {tab === "llamar" && <CallMode data={data} replaceLead={replaceLead} toast={toast} />}
+        {tab === "llamar" && <CallMode data={data} replaceLead={replaceLead} toast={toast} onChat={actions.chat} />}
         {tab === "hoy" && <Agenda data={data} actions={actions} />}
         {tab === "leads" && <LeadList data={data} actions={actions} />}
+        {tab === "whatsapp" && <WhatsApp data={data} openLead={open} toast={toast} />}
         {tab === "embudo" && <Pipeline data={data} actions={actions} />}
         {tab === "panel" && <Dashboard data={data} />}
         {tab === "equipo" && admin && <Team data={data} toast={toast} />}
@@ -235,6 +242,17 @@ export default function App() {
           }}
         />
       )}
+      {chatLead && (() => {
+        const l = data.leads.find((x) => x.id === chatLead);
+        if (!l) return null;
+        return (
+          <div className="overlay top-layer" onClick={(e) => e.target === e.currentTarget && setChatLead(null)}>
+            <aside className="sheet chat-sheet" role="dialog" aria-modal="true" aria-label={`WhatsApp con ${String(l.f.nombre ?? "")}`}>
+              <ChatView chat={String(l.f.telefono ?? "")} title={String(l.f.nombre ?? "Lead")} subtitle={String(l.f.telefono ?? "")} onBack={() => setChatLead(null)} toast={toast} />
+            </aside>
+          </div>
+        );
+      })()}
       <PhoneAlerts />
       {toastMsg && (
         <div className={toastMsg.error ? "toast bad" : "toast"} role="status">
