@@ -218,8 +218,7 @@ const MANUAL: { title: string; items: [string, string][] }[] = [
     items: [
       ["Campana de dirección", "Solicitudes pendientes, con Aprobar y Rechazar, y trabajadores con la jornada abierta más de 10 horas."],
       ["Campana del trabajador", "Rellamada suya que toca ahora, cliente suyo que escribe por WhatsApp, jornada abierta más de 10 horas, solicitud aprobada o rechazada y nómina nueva."],
-      ["Notificaciones push", "Llegan al móvil aunque la app esté cerrada, y solo para lo importante: una rellamada con hora que toca (a su comercial), cuando quedan 5 minutos de jornada (al trabajador) y una jornada con más de 10 horas abierta (al trabajador y a dirección). Cada persona las activa en su dispositivo desde la campana → «Activar notificaciones». En iPhone hay que tener la app añadida a la pantalla de inicio."],
-      ["Para que las push salgan a su hora", "Un servicio externo tiene que llamar cada minuto a la dirección que aparece en Equipo → Notificaciones push (por ejemplo cron-job.org, gratis). Sin eso, las notificaciones push no se envían. El resto de avisos de la campana (WhatsApp, solicitudes, nóminas) solo se ven con la app abierta."],
+      ["Límite de los avisos", "Solo saltan con la app abierta. No llegan como notificación del móvil con la app cerrada."],
       ["Llamar desde el ordenador", "El botón Llamar envía un aviso al móvil o tablet donde ese mismo usuario tenga la app abierta; al aceptarlo, el teléfono marca."],
       ["Usuarios", "En Equipo: alta, edición, activar o desactivar y cambio de contraseña. El «código» de cada comercial tiene que coincidir exactamente con su opción en la columna COMERCIAL de Notion."],
       ["Dónde se guarda cada cosa", "Todo está en Notion. Los leads, en «LEADS O2». Lo propio de la app, en bases que crea sola dentro de la página «BUT Calls»: Usuarios, Registro de llamadas, Bonos, Avisos de llamada, WhatsApp enviados, Reservas de llamada, Fichajes, Solicitudes y Nóminas."],
@@ -279,10 +278,6 @@ export default function Help({ data, goTo }: { data: LeadsPayload; goTo: (t: Go)
             <details>
               <summary>¿Cuántas veces se llama a un lead que no contesta?</summary>
               <p className="hint">Cinco. Al quinto intento sin localizarle pasa a «Perdido» y deja de salirte. Si más adelante quieres retomarlo, búscalo en Leads.</p>
-            </details>
-            <details>
-              <summary>¿Cómo activo las notificaciones en el móvil?</summary>
-              <p className="hint">Pulsa la campana y luego «Activar notificaciones». Te avisaremos, aunque tengas la app cerrada, de una rellamada que te toca y del final de tu jornada. En iPhone tienes que abrir la app desde el icono de la pantalla de inicio.</p>
             </details>
             <details>
               <summary>¿Qué es la campana de arriba?</summary>

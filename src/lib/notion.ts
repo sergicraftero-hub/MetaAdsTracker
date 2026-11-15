@@ -156,7 +156,7 @@ interface Cache {
   people?: { at: number; names: Map<string, string> };
   ensured?: Set<string>;
 }
-type AppDb = "users" | "log" | "alerts" | "bonus" | "wa" | "fichajes" | "solicitudes" | "nominas" | "locks" | "ajustes" | "push";
+type AppDb = "users" | "log" | "alerts" | "bonus" | "wa" | "fichajes" | "solicitudes" | "nominas" | "locks" | "ajustes";
 const g = globalThis as unknown as { __crmNotion?: Cache };
 const cache: Cache = (g.__crmNotion ??= { leads: new Map(), fullAt: 0, syncAt: 0, appDbs: {}, log: { entries: new Map(), from: Infinity, syncAt: 0 } });
 
@@ -313,12 +313,6 @@ const APP_DBS: Record<AppDb, { env: string; title: string; titleProp: string; pr
       Para: { rich_text: {} },
       Activo: { checkbox: {} },
     },
-  },
-  push: {
-    env: "NOTION_PUSH_DB_ID",
-    title: "BUT Calls · Dispositivos con notificaciones",
-    titleProp: "Dispositivo",
-    props: { Usuario: { rich_text: {} }, Suscripcion: { rich_text: {} } },
   },
   ajustes: {
     env: "NOTION_AJUSTES_DB_ID",
@@ -771,7 +765,7 @@ export async function waAuthors(chatId: string): Promise<Record<string, string>>
 
 /* ---------- Tablas del portal del empleado (fichajes, solicitudes, nóminas) ---------- */
 
-export type PortalTable = "fichajes" | "solicitudes" | "nominas" | "ajustes" | "push";
+export type PortalTable = "fichajes" | "solicitudes" | "nominas" | "ajustes";
 /** Fila genérica: `id`, `created` y los valores de sus columnas por nombre de propiedad de Notion. */
 export type Row = { id: string; created: string; edited?: string } & Record<string, Value | undefined>;
 

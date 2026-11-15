@@ -113,8 +113,6 @@ interface DemoState {
   waLabels: Map<string, string[]>;
   waUnread: Map<string, boolean>;
   locks: Map<string, { user: string; at: number }>;
-  /** Notificaciones push «enviadas» en modo demostración (no salen a ningún sitio) */
-  pushed: { to: string; title: string; body: string }[];
   rows: Record<string, DemoRow[]>;
   n: number;
 }
@@ -156,8 +154,7 @@ function state(): DemoState {
     waLabels: new Map(),
     waUnread: new Map(),
     locks: new Map(),
-    pushed: [],
-    rows: { fichajes: [], solicitudes: [], nominas: [], ajustes: [], push: [] },
+    rows: { fichajes: [], solicitudes: [], nominas: [], ajustes: [] },
     wa: new Map(
       leads.slice(9, 14).map((l, i) => {
         const id = `${String(l.f.telefono).replace(/\D/g, "")}@s.whatsapp.net`;
@@ -211,10 +208,6 @@ export const demo = {
         return { id, phone, name: names.get(phone) ?? "", at: last.at, unread: st.waUnread.has(id) ? (st.waUnread.get(id) ? -1 : 0) : last.fromMe ? 0 : 1, last: last.text || "[Documento]", lastFromMe: last.fromMe, labels: st.waLabels.get(id) ?? (st.wa.get(id)?.length === 3 ? ["Nuevo cliente"] : []) };
       })
       .sort((a, b) => b.at.localeCompare(a.at));
-  },
-  pushed: () => state().pushed,
-  recordPush(to: string, title: string, body: string) {
-    state().pushed.push({ to, title, body });
   },
   lockLead(leadId: string, user: string): boolean {
     const st = state();

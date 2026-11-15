@@ -44,7 +44,7 @@ Los estados y comerciales se leen de las opciones de las columnas de Notion, as�
 
 ### Datos propios de la app
 
-La app guarda sus propios datos en bases de datos de Notion que crea ella sola dentro de una página llamada exactamente **BUT Calls**, compartida con la integración (`···` → *Conexiones*): «Usuarios», «Registro de llamadas», «Bonos», «Avisos de llamada», «WhatsApp enviados», «Reservas de llamada», «Ajustes de usuario», «Dispositivos con notificaciones», «Fichajes», «Solicitudes» y «Nóminas». Cada una aparece la primera vez que hace falta.
+La app guarda sus propios datos en bases de datos de Notion que crea ella sola dentro de una página llamada exactamente **BUT Calls**, compartida con la integración (`···` → *Conexiones*): «Usuarios», «Registro de llamadas», «Bonos», «Avisos de llamada», «WhatsApp enviados», «Reservas de llamada», «Ajustes de usuario», «Fichajes», «Solicitudes» y «Nóminas». Cada una aparece la primera vez que hace falta.
 
 En *Equipo → Añadir usuario* se da de alta a cada comercial con su código de la columna `COMERCIAL`. Las contraseñas se guardan cifradas (hash scrypt), nunca en claro.
 
@@ -58,15 +58,6 @@ El fichaje está pensado para el registro diario de jornada que exige el artícu
 - Quien tenga acceso de edición a esa base en Notion puede cambiar filas a mano. La app lo detecta y lo marca, pero no lo impide: limita ese acceso a dirección.
 - La app no calcula horas extraordinarias ni controla los límites de jornada; da el total trabajado por día y por mes.
 - Esto no es asesoramiento legal: conviene que vuestra gestoría confirme que encaja con vuestro convenio.
-
-### Notificaciones push (opcional)
-
-Llegan al móvil aunque la app esté cerrada, solo para lo importante: rellamada con hora que toca, cinco minutos para el fin de jornada y jornada con más de 10 horas abierta.
-
-1. Cada persona las activa en su dispositivo: campana → «Activar notificaciones». En iPhone la app tiene que estar añadida a la pantalla de inicio.
-2. Un servicio externo tiene que llamar cada minuto a la dirección que aparece en *Equipo → Notificaciones push* (por ejemplo [cron-job.org](https://cron-job.org), gratis). El plan gratuito de Vercel no ejecuta tareas tan frecuentes.
-
-Las claves de envío se derivan de `SESSION_SECRET`: si se cambia, hay que volver a activar las notificaciones en cada dispositivo y actualizar la dirección en el servicio externo.
 
 ### WhatsApp compartido (opcional)
 
