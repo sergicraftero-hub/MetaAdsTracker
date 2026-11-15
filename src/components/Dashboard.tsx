@@ -1,4 +1,5 @@
 "use client";
+import Empty from "./Empty";
 import { useEffect, useMemo, useState } from "react";
 import { isClosed, stageOf } from "@/lib/fields";
 import type { CallLog, Lead, LeadsPayload } from "@/lib/types";
@@ -145,7 +146,7 @@ function ResponseSpeed({ leads, showSellers }: { leads: Lead[]; showSellers: boo
       <h2>Velocidad de respuesta</h2>
       <p className="muted hint">Tiempo desde que entra el lead hasta la primera llamada. Los leads que entran de noche o en festivo alargan la media, por eso se usa la mediana.</p>
       {rows.length === 0 ? (
-        <p className="muted empty-line">Aún no hay leads llamados en este periodo con la hora de la primera llamada.</p>
+        <Empty small title="Aún no hay datos" text="No hay leads llamados en este periodo con la hora de la primera llamada." />
       ) : (
         <div className="tiles inner-tiles">
           <div className="tile"><span className="tile-label">Tiempo habitual (mediana)</span><span className="tile-value">{span(median(rows.map((r) => r.ms)))}</span><span className="muted tile-sub">{rows.length} leads medidos</span></div>
@@ -197,7 +198,7 @@ function LeadProfile({ leads }: { leads: Lead[] }) {
         </select>
       </div>
       {rows.length === 0 ? (
-        <p className="muted empty-line">Sin leads en este periodo.</p>
+        <Empty small title="Sin leads en este periodo" text="Prueba con un periodo más largo." />
       ) : (
         <ul className="barlist profile">
           {rows.map((r) => (
@@ -401,7 +402,7 @@ function ManagerDashboard({ data, onOpenLead }: { data: LeadsPayload; onOpenLead
           <span><i className="sw s2" /> Firmados</span>
         </div>
         {chart.list.length === 0 ? (
-          <p className="muted empty-line">Sin leads en este periodo.</p>
+          <Empty small title="Sin leads en este periodo" text="Prueba con un periodo más largo." />
         ) : (
           <div className="daychart" role="img" aria-label={`Leads y firmados por ${chart.unit}`}>
             {chart.list.map((b) => (
@@ -452,7 +453,7 @@ function ManagerDashboard({ data, onOpenLead }: { data: LeadsPayload; onOpenLead
             ))}
           </ul>
         ) : (
-          <p className="muted empty-line">Sin leads en este periodo.</p>
+          <Empty small title="Sin leads en este periodo" text="Prueba con un periodo más largo." />
         )}
       </section>
 

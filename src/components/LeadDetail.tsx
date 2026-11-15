@@ -1,4 +1,5 @@
 "use client";
+import { celebrate } from "./Celebrate";
 import { useEffect, useState } from "react";
 import { LABELS, stageOf } from "@/lib/fields";
 import type { FieldKey, Lead, LeadsPayload } from "@/lib/types";
@@ -112,7 +113,10 @@ export default function LeadDetail({ lead, data, actions, onClose }: Props) {
 
             <label>
               Estado
-              <select value={str(f.estado)} onChange={(e) => save({ estado: e.target.value || null })}>
+              <select value={str(f.estado)} onChange={(e) => {
+                if (stageOf(e.target.value) === "ganado" && stageOf(f.estado) !== "ganado") celebrate(str(f.nombre));
+                save({ estado: e.target.value || null });
+              }}>
                 <option value="">Sin contactar</option>
                 {schema.estado.options?.map((o) => <option key={o.name}>{o.name}</option>)}
               </select>

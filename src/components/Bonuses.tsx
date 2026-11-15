@@ -1,4 +1,5 @@
 "use client";
+import Empty from "./Empty";
 import { useCallback, useEffect, useState } from "react";
 import type { Bonus, LeadsPayload } from "@/lib/types";
 import { useDialogs } from "./Dialogs";
@@ -125,7 +126,7 @@ export function BonusAdmin({ data, people, toast }: { data: LeadsPayload; people
         <p className="notice">Para guardar bonos hace falta la página «BUT Calls» en Notion compartida con la integración.</p>
       ) : (
         <>
-          {state.bonuses.length === 0 && <p className="muted empty-line">Aún no hay bonos. Crea el primero aquí abajo.</p>}
+          {state.bonuses.length === 0 && <Empty small title="Aún no hay bonos" text="Crea el primero aquí abajo." />}
           <ul className="bonus-admin">
             {state.bonuses.map((b) => (
               <li key={b.id} className={b.active ? "" : "off"}>

@@ -1,4 +1,6 @@
 "use client";
+import { celebrate } from "./Celebrate";
+import Inspire from "./Inspire";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { stageOf } from "@/lib/fields";
 import type { Lead, LeadsPayload } from "@/lib/types";
@@ -186,6 +188,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload, onC
             Fichar entrada y ver mi código
           </button>
         </section>
+        <Inspire seed={session.done} />
       </div>
     );
   }
@@ -206,6 +209,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload, onC
             Deja anotado lo que tengas pendiente y ficha la salida en el Portal. ¡Buen trabajo hoy!
           </p>
         </section>
+        <Inspire seed={session.done} />
       </div>
     );
   }
@@ -249,6 +253,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload, onC
             {busy ? "Cargando…" : total === 0 ? "Nada pendiente" : active ? "Volver a empezar" : "Empezar a llamar"}
           </button>
         </section>
+        <Inspire seed={session.done} />
       </div>
     );
   }
@@ -334,6 +339,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload, onC
             {stageOf(pending) === "ganado" ? (
               <SaleForm lead={lead} toast={toast} submitLabel="Guardar venta y siguiente" onDone={(_sale, f) => {
                 salesChanged();
+                celebrate(str(lead.f.nombre));
                 finish({ estado: pending, rellamada: null }, f);
               }} />
             ) : (

@@ -62,6 +62,8 @@ export const GET = handle(async (req: Request) => {
       quarter: summary.reduce((a, c) => a + c.quarter, 0),
     },
     catalog: catalogFor(cat, true),
+    // Escalones de cada rápel (solo el número de fibras) para dibujar las barras de progreso
+    tiers: { lots: cat.lots.map((t) => t[0]), quarter: cat.quarter.map((t) => t[0]) },
     codes: codes.map((real) => ({ alias: aliasOf(real, codes), real })),
     estados: options.estados,
     ignored,

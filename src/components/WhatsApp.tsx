@@ -1,4 +1,5 @@
 "use client";
+import Empty from "./Empty";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Lead, LeadsPayload, WaChat, WaMessage } from "@/lib/types";
 import Icon from "./Icon";
@@ -336,7 +337,7 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
           <button className="btn" onClick={() => setOpen(`${typed}@s.whatsapp.net`)}>Abrir chat con +{typed}</button>
         )}
         {chats.length === 0 && typed.length < 9 && (
-          <p className="muted empty-line">{scope === "mios" && !q ? "Aún no tienes chats asignados. Mira en Global y asígnate los tuyos." : "Ningún chat coincide."}</p>
+          scope === "mios" && !q ? <Empty small title="Aún no tienes chats" text="Mira en Global y asígnate los tuyos." /> : <Empty small title="Ningún chat coincide" />
         )}
       </aside>
       <section className="card wa-chat">
@@ -357,7 +358,7 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
             flagged={flagged}
           />
         ) : (
-          <p className="muted empty-line">Elige un chat de la lista.</p>
+          <Empty title="Elige un chat" text="Las conversaciones del equipo, en un solo sitio." />
         )}
       </section>
     </div>

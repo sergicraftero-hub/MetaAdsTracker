@@ -28,6 +28,8 @@ export const GET = handle(async (req: Request) => {
       Movistar: summary.find((s) => s.code === rec.Movistar.code)?.lotsNext?.need ?? null,
       "No Movistar": summary.find((s) => s.code === rec["No Movistar"].code)?.lotsNext?.need ?? null,
     },
+    // Para la barra de progreso del código recomendado: fibras que lleva y escalones (sin importes)
+    progress: { have: summary.find((s) => s.code === rec.Movistar.code)?.monthBaf ?? 0, steps: cat.lots.map((t) => t[0]) },
     why: admin ? { Movistar: rec.Movistar.why, "No Movistar": rec["No Movistar"].why } : undefined,
     sale: existing ? (admin ? existing : forSeller(existing)) : null,
   });

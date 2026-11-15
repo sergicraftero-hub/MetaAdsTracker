@@ -1,4 +1,5 @@
 "use client";
+import Empty from "./Empty";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isClosed } from "@/lib/fields";
 import type { Leave, LeadsPayload, Payslip, Person, Shift } from "@/lib/types";
@@ -418,7 +419,7 @@ function Leaves({ data, toast }: Props) {
             </li>
           ))}
         </ul>
-        {(admin ? state.requests : mine).length === 0 && <p className="muted empty-line">Aún no hay solicitudes.</p>}
+        {(admin ? state.requests : mine).length === 0 && <Empty small title="Sin solicitudes" text="Las vacaciones y permisos que se pidan aparecerán aquí." />}
       </section>
     </div>
   );
@@ -529,7 +530,7 @@ function Payslips({ data, toast }: Props) {
             </li>
           ))}
         </ul>
-        {state.payslips.length === 0 && <p className="muted empty-line">Todavía no hay nóminas.</p>}
+        {state.payslips.length === 0 && <Empty small title="Todavía no hay nóminas" text="Dirección las sube aquí cada mes." />}
       </section>
     </div>
   );

@@ -1,4 +1,5 @@
 "use client";
+import TierBar from "./TierBar";
 import { useEffect, useState } from "react";
 import { api } from "./util";
 
@@ -14,6 +15,7 @@ interface Code {
 interface Data {
   summary: Code[];
   plan: { code: string; why: string } | null;
+  tiers?: { lots: number[]; quarter: number[] };
 }
 
 const eur = (n: number) => `${n.toLocaleString("es-ES", { maximumFractionDigits: 0 })} €`;
@@ -54,14 +56,8 @@ export default function CodeSummary({ onOpen }: { onOpen?: () => void }) {
             <span>
               <b>{c.monthBaf}</b> fibras · {c.sales} ventas · rápel {eur(c.lots)}
             </span>
-            {c.lotsNext ? (
-              <>
-                <div className="meter"><span style={{ width: `${(c.monthBaf / (c.monthBaf + c.lotsNext.need)) * 100}%` }} /></div>
-                <span className="muted hint">Faltan {c.lotsNext.need} para {eur(c.lotsNext.amount)}</span>
-              </>
-            ) : (
-              <span className="muted hint">En el tramo más alto</span>
-            )}
+            <TierBar value={c.monthBaf} steps={data.tiers?.lots ?? []} label={c.code} />
+            <span className="muted hint">{c.lotsNext ? `Faltan ${c.lotsNext.need} para ${eur(c.lotsNext.amount)}` : "En el tramo más alto"}</span>
           </div>
         ))}
       </div>

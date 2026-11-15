@@ -1,4 +1,6 @@
 "use client";
+import TierBar from "./TierBar";
+import Empty from "./Empty";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { LeadsPayload, Product, Sale, SaleOrigin } from "@/lib/types";
 import { useDialogs } from "./Dialogs";
@@ -31,6 +33,7 @@ interface Data {
   plan: { code: string; why: string; steps: { code: string; add: number; reach: number; gain: number }[]; gain: number } | null;
   totals: { commission: number; lots: number; quarter: number };
   catalog: Product[];
+  tiers?: { lots: number[]; quarter: number[] };
   codes: { alias: string; real: string }[];
   estados: string[];
   /** Filas «BONO…» apuntadas a mano en Notion que no se cuentan */
@@ -155,7 +158,7 @@ export default function Contracts({ toast }: { data: LeadsPayload; toast: Toast 
             </div>
           </>
         ) : (
-          <p className="muted empty-line">Sin ventas este mes.</p>
+          <Empty small title="Sin ventas este mes" text="La primera firma del mes está al caer." />
         )}
         <p className="muted hint">El rápel trimestral ({eur(data.totals.quarter)} en el trimestre en curso) va aparte, porque no es de un solo mes.</p>
         {data.products.length > 0 && (
@@ -222,21 +225,13 @@ export default function Contracts({ toast }: { data: LeadsPayload; toast: Toast 
               <span className="muted hint">{c.realCode || "Ventas que aún no tienen código de carga"}</span>
               <div className="code-line">
                 <span>Lotes del mes: <b>{c.monthBaf}</b> fibras · {eur(c.lots)}</span>
-                {c.lotsNext && (
-                  <>
-                    <div className="meter"><span style={{ width: `${(c.monthBaf / (c.monthBaf + c.lotsNext.need)) * 100}%` }} /></div>
-                    <span className="muted hint">Faltan {c.lotsNext.need} para {eur(c.lotsNext.amount)}</span>
-                  </>
-                )}
+                {c.realCode && <TierBar value={c.monthBaf} steps={data.tiers?.lots ?? []} label="Lotes del mes" />}
+                {c.realCode && <span className="muted hint">{c.lotsNext ? `Faltan ${c.lotsNext.need} para ${eur(c.lotsNext.amount)}` : "En el tramo más alto"}</span>}
               </div>
               <div className="code-line">
                 <span>Trimestre (sin Movistar): <b>{c.quarterBaf}</b> fibras · {eur(c.quarter)}</span>
-                {c.quarterNext && (
-                  <>
-                    <div className="meter"><span style={{ width: `${(c.quarterBaf / (c.quarterBaf + c.quarterNext.need)) * 100}%` }} /></div>
-                    <span className="muted hint">Faltan {c.quarterNext.need} para {eur(c.quarterNext.amount)}</span>
-                  </>
-                )}
+                {c.realCode && <TierBar value={c.quarterBaf} steps={data.tiers?.quarter ?? []} label="Trimestre" />}
+                {c.realCode && <span className="muted hint">{c.quarterNext ? `Faltan ${c.quarterNext.need} para ${eur(c.quarterNext.amount)}` : "En el tramo más alto"}</span>}
               </div>
             </div>
           ))}

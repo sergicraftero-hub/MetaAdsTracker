@@ -1,4 +1,5 @@
 "use client";
+import Empty from "./Empty";
 import { useMemo, useState } from "react";
 import { isClosed, stageOf } from "@/lib/fields";
 import type { Lead, LeadsPayload, Schema } from "@/lib/types";
@@ -185,7 +186,7 @@ function AgendaCalendar({ list, data, actions }: Props & { list: Lead[] }) {
           <span className="count">{selected.length}</span>
         </h2>
         {selected.length === 0 ? (
-          <p className="muted empty-line">Sin rellamadas este día.</p>
+          <Empty small title="Día despejado" text="Sin rellamadas este día." />
         ) : (
           <ul className="rows">
             {selected.map((l) => <LeadRow key={l.id} lead={l} data={data} actions={actions} meta="rellamada" showOwner />)}
@@ -259,7 +260,7 @@ export function Agenda({ data, actions }: Props) {
         )}
       </div>
       {view === "calendario" && <AgendaCalendar list={list} data={data} actions={actions} />}
-      {view === "lista" && groups.length === 0 && <section className="card"><p className="muted empty-line">No hay rellamadas programadas.</p></section>}
+      {view === "lista" && groups.length === 0 && <section className="card"><Empty title="Agenda al día" text="No hay rellamadas programadas. Las que apuntes al llamar aparecerán aquí." /></section>}
       {view === "lista" &&
         groups.map((g) => (
           <section className="card" key={g.key}>
@@ -378,7 +379,7 @@ export function LeadList({ data, actions }: Props) {
             />
           ))}
         </ul>
-        {list.length === 0 && <p className="muted empty-line">Ningún lead coincide con el filtro.</p>}
+        {list.length === 0 && <Empty title="Ningún lead coincide" text="Prueba con otro filtro o con otra búsqueda." />}
         {list.length > limit && (
           <button className="btn link" onClick={() => setLimit(limit + 100)}>Mostrar más</button>
         )}

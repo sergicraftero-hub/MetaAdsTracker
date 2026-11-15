@@ -1,4 +1,5 @@
 "use client";
+import TierBar from "./TierBar";
 import { useEffect, useState } from "react";
 import Icon from "./Icon";
 import { api, dayKey } from "./util";
@@ -7,6 +8,7 @@ type Origin = "Movistar" | "No Movistar";
 interface Rec {
   recommended: Record<Origin, string>;
   missing: Record<Origin, number | null>;
+  progress?: { have: number; steps: number[] };
 }
 
 /** Avisa a toda la app de que hay una venta nueva, para volver a mirar qué código conviene. */
@@ -50,6 +52,7 @@ export default function CodeHint({ big }: { big?: boolean }) {
         {big ? <b>{r.Movistar}</b> : <>Si contrata, cárgalo en <b>{r.Movistar}</b></>}
         {!same && <> (si no viene de Movistar, <b>{r["No Movistar"]}</b>)</>}
         {big && <span className="hint block">{left(missing.Movistar)}</span>}
+        {big && rec.progress && <TierBar value={rec.progress.have} steps={rec.progress.steps} label={r.Movistar} />}
       </span>
     </div>
   );
@@ -72,7 +75,23 @@ export function CodeGuard({ active }: { active: boolean }) {
     }
   }, []);
 
-  if (!active || !rec || ack === null) return null;
+  // Mientras dura la celebración de una venta, el aviso espera para no pisarla
+  const [hold, setHold] = useState(false);
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
+    const on = () => {
+      clearTimeout(t);
+      setHold(true);
+      t = setTimeout(() => setHold(false), 3000);
+    };
+    window.addEventListener("but-firmado", on);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("but-firmado", on);
+    };
+  }, []);
+
+  if (!active || !rec || ack === null || hold) return null;
   const today = dayKey(new Date());
   const code = rec.recommended.Movistar;
   const other = rec.recommended["No Movistar"];
@@ -94,6 +113,7 @@ export function CodeGuard({ active }: { active: boolean }) {
         <h2 className="code-name">{code}</h2>
         {other !== code && <p>Si el cliente no viene de Movistar, en <b>{other}</b>.</p>}
         <p className="muted">{left(rec.missing.Movistar)}</p>
+        {rec.progress && <TierBar value={rec.progress.have} steps={rec.progress.steps} label={code} />}
         <button className="btn primary big" onClick={accept}>Entendido</button>
       </div>
     </div>

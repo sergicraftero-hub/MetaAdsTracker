@@ -1,4 +1,5 @@
 "use client";
+import Celebration from "./Celebrate";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Fields, Lead, LeadsPayload } from "@/lib/types";
 import CallMode from "./CallMode";
@@ -306,6 +307,7 @@ function Shell() {
         </div>
       )}
       {/* El código del día salta en pantalla a quien ha fichado, y de nuevo cada vez que cambia */}
+      <Celebration />
       <CodeGuard active={data.clockedIn === true && !admin} />
       <PhoneAlerts />
       {toastMsg && (
