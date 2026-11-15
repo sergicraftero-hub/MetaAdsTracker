@@ -714,8 +714,8 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
     if (!v?.text.trim()) return;
     try {
       await api("/api/portal/anuncios", "POST", { text: v.text });
-      toast("Aviso enviado");
-      load();
+      await load();
+      toast("Aviso enviado a todo el equipo");
     } catch (e) {
       toast((e as Error).message, true);
     }
