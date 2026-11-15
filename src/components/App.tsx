@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Fields, Lead, LeadsPayload } from "@/lib/types";
 import CallMode from "./CallMode";
 import Dashboard from "./Dashboard";
+import Help from "./Help";
 import LeadDetail from "./LeadDetail";
 import NewLead from "./NewLead";
 import Team from "./Team";
@@ -12,7 +13,7 @@ import { Agenda, LeadList, Pipeline } from "./views";
 import Portal, { Bell } from "./Portal";
 import WhatsApp, { ChatView } from "./WhatsApp";
 
-type Tab = "llamar" | "hoy" | "leads" | "whatsapp" | "embudo" | "panel" | "portal" | "equipo";
+type Tab = "llamar" | "hoy" | "leads" | "whatsapp" | "embudo" | "panel" | "portal" | "equipo" | "ayuda";
 const CACHE_KEY = "but-calls-v1";
 
 const ICONS: Record<Tab, string> = {
@@ -23,9 +24,10 @@ const ICONS: Record<Tab, string> = {
   embudo: "M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v6h-4z",
   panel: "M4 20V10M10 20V4M16 20v-7M22 20H2",
   portal: "M4 7h16v13H4zM9 7V4h6v3M4 12h16",
+  ayuda: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01",
   equipo: "M16 19v-1a4 4 0 0 0-8 0v1M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM20 19v-1a3 3 0 0 0-2-2.8M4 19v-1a3 3 0 0 1 2-2.8",
 };
-const TITLES: Record<Tab, string> = { llamar: "Llamar", hoy: "Agenda", leads: "Leads", whatsapp: "WhatsApp", embudo: "Embudo", panel: "Panel", portal: "Portal", equipo: "Equipo" };
+const TITLES: Record<Tab, string> = { llamar: "Llamar", hoy: "Agenda", leads: "Leads", whatsapp: "WhatsApp", embudo: "Embudo", panel: "Panel", portal: "Portal", ayuda: "Ayuda", equipo: "Equipo" };
 
 export interface Actions {
   open: (id: string) => void;
@@ -164,7 +166,7 @@ export default function App() {
   }
 
   const admin = data.me.role === "admin";
-  const tabs: Tab[] = admin ? ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel", "portal", "equipo"] : ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel", "portal"];
+  const tabs: Tab[] = admin ? ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel", "portal", "equipo", "ayuda"] : ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel", "portal", "ayuda"];
   const lead = selected ? data.leads.find((l) => l.id === selected) : undefined;
 
   return (
@@ -230,6 +232,7 @@ export default function App() {
         {tab === "embudo" && <Pipeline data={data} actions={actions} />}
         {tab === "panel" && <Dashboard data={data} />}
         {tab === "portal" && <Portal data={data} toast={toast} />}
+        {tab === "ayuda" && <Help data={data} goTo={setTab} />}
         {tab === "equipo" && admin && <Team data={data} toast={toast} />}
       </main>
 

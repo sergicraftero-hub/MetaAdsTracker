@@ -589,6 +589,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
   const [open, setOpen] = useState(false);
   const [, setTick] = useState(0);
   const announced = useRef<Set<string> | null>(null);
+  const chatsLoaded = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -601,7 +602,11 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
   const loadChats = useCallback(async () => {
     if (!data.waReady || !data.me.code) return;
     try {
-      setChats((await api<{ chats: UnreadChat[] }>("/api/whatsapp/pendientes")).chats);
+      const list = (await api<{ chats: UnreadChat[] }>("/api/whatsapp/pendientes")).chats;
+      // Los mensajes que ya estaban sin leer al abrir la app no se anuncian
+      if (!chatsLoaded.current) for (const c of list) announced.current?.add(`w:${c.id}:${c.unread}`);
+      chatsLoaded.current = true;
+      setChats(list);
     } catch {}
   }, [data.waReady, data.me.code]);
 

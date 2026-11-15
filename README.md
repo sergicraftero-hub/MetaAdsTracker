@@ -18,6 +18,7 @@ CRM de seguimiento comercial de leads. Es una app web instalable (PWA): el mismo
   - *Vacaciones*: calendario para pedir vacaciones u otras ausencias; dirección aprueba o rechaza. Las ausencias aprobadas se ven en el calendario de todos.
   - *Nóminas*: dirección sube el PDF de cada trabajador y mes; cada uno descarga solo las suyas.
 - **Avisos** (campana arriba a la derecha): al comercial le avisa de una rellamada suya que toca ahora, de un cliente suyo que escribe por WhatsApp, de su jornada si lleva más de 10 horas abierta, de solicitudes resueltas y de nóminas nuevas. A dirección, de las solicitudes pendientes (se aprueban o rechazan ahí mismo) y de quien no ha fichado la salida. Solo funcionan con la app abierta.
+- **Ayuda**: para el trabajador, cuatro tutoriales paso a paso (fichar, llamar, WhatsApp, vacaciones y nóminas) y unas preguntas rápidas. Para dirección, además, una guía completa con buscador que explica cómo funciona cada regla de la app. El texto está en `src/components/Help.tsx`.
 - **Equipo** (solo dirección): usuarios (alta, edición, acceso y contraseña), bonos (uno para todo el equipo y otros individuales, con premio, meta y periodo) y comprobación de la conexión con Notion.
 
 **Roles.** Dirección ve todo y puede reasignar. Cada comercial ve los leads cuya columna `COMERCIAL` coincide con su código, las rellamadas pendientes de todo el equipo y, por defecto, también los leads que no tienen comercial (se le asignan cuando le salen en la cola). Para que solo vean los suyos: `COMERCIAL_VE_SIN_ASIGNAR=false`.
