@@ -238,6 +238,7 @@ const MANUAL: { title: string; items: [string, string][] }[] = [
   {
     title: "Avisos, usuarios y datos",
     items: [
+      ["Avisos a todo el equipo", "Dirección abre la campana y pulsa «Enviar aviso a todo el equipo»: escribe un mensaje y le llega a todos los usuarios, dirección incluida. Aparece en la campana durante dos semanas y salta en pantalla la primera vez que cada persona abre la app (o en menos de un minuto si la tiene abierta). Dirección puede borrarlo desde la misma campana."],
       ["Campana de dirección", "Solicitudes pendientes, con Aprobar y Rechazar, y trabajadores con la jornada abierta más de 10 horas."],
       ["Campana del trabajador", "Rellamada suya que toca ahora, cliente suyo que escribe por WhatsApp, jornada abierta más de 10 horas, solicitud aprobada o rechazada y nómina nueva."],
       ["Límite de los avisos", "Solo saltan con la app abierta. No llegan como notificación del móvil con la app cerrada."],
@@ -303,7 +304,7 @@ export default function Help({ data, goTo }: { data: LeadsPayload; goTo: (t: Go)
             </details>
             <details>
               <summary>¿Qué es la campana de arriba?</summary>
-              <p className="hint">Tus avisos: una rellamada que te toca, un cliente que te ha escrito, tus vacaciones aprobadas o una nómina nueva. Solo avisa con la app abierta.</p>
+              <p className="hint">Tus avisos: un mensaje de dirección para todo el equipo, una rellamada que te toca, un cliente que te ha escrito, tus vacaciones aprobadas o una nómina nueva. Solo avisa con la app abierta.</p>
             </details>
             <details>
               <summary>Me he equivocado al marcar un resultado</summary>

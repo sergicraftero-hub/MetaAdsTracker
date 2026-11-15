@@ -557,6 +557,7 @@ interface News {
   kind: string;
   text: string;
   at: string;
+  author?: string;
 }
 interface OpenClock {
   id: string;
@@ -586,6 +587,9 @@ const SEEN_KEY = "but-calls-avisos-vistos";
  *   su jornada si lleva demasiadas horas abierta, solicitudes resueltas y nóminas nuevas.
  */
 export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: BellProps) {
+  const dlg = useDialogs();
+  const admin = data.me.role === "admin";
+  const shown = useRef<Set<string>>(new Set());
   const [pending, setPending] = useState<Leave[]>([]);
   const [news, setNews] = useState<News[]>([]);
   const [clock, setClock] = useState<OpenClock[]>([]);
@@ -601,6 +605,16 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
       const r = await api<{ pending: Leave[]; news: News[]; clock: OpenClock[] }>("/api/portal/avisos");
       setPending(r.pending);
       setNews(r.news);
+      // Un aviso de dirección que aún no se ha visto en este dispositivo salta en pantalla una vez
+      let last = 0;
+      try {
+        last = Number(localStorage.getItem(SEEN_KEY)) || 0;
+      } catch {}
+      for (const n of r.news) {
+        if (n.kind !== "anuncio" || shown.current.has(n.id) || new Date(n.at).getTime() <= last) continue;
+        shown.current.add(n.id);
+        toast(`Aviso de dirección: ${n.text}`);
+      }
       setClock(r.clock ?? []);
     } catch {}
   }, []);
@@ -690,6 +704,32 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
     }
     setOpen(!open);
   }
+  async function sendNotice() {
+    const v = await dlg.form({
+      title: "Aviso para todo el equipo",
+      text: "Le saldrá a todos los usuarios, también a dirección, en la campana y en pantalla la próxima vez que abran la app.",
+      ok: "Enviar aviso",
+      fields: [{ key: "text", label: "Mensaje", type: "textarea", required: true, max: 500, placeholder: "p. ej. Mañana la reunión es a las 9:30" }],
+    });
+    if (!v?.text.trim()) return;
+    try {
+      await api("/api/portal/anuncios", "POST", { text: v.text });
+      toast("Aviso enviado");
+      load();
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+  }
+  async function removeNotice(id: string) {
+    if (!(await dlg.confirm({ title: "¿Borrar este aviso?", text: "Dejará de verlo todo el equipo.", ok: "Borrar", danger: true }))) return;
+    try {
+      await api(`/api/portal/anuncios?id=${id}`, "DELETE");
+      toast("Aviso borrado");
+      load();
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+  }
   const go = (fn: () => void) => () => {
     toggle();
     fn();
@@ -705,6 +745,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
         <div className="card bell-panel" role="dialog" aria-label="Avisos">
           <h2>Avisos</h2>
           {empty && <p className="muted hint">No tienes avisos.</p>}
+          {admin && <button className="btn small notice-new" onClick={sendNotice}><Icon name="pencil" size={14} /> Enviar aviso a todo el equipo</button>}
           <ul className="bonus-admin">
             {ending && (
               <li>
@@ -751,7 +792,17 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
                 </div>
               </li>
             ))}
-            {news.map((n) => (
+            {news.filter((n) => n.kind === "anuncio").map((n) => (
+              <li key={n.id} className={new Date(n.at).getTime() > seen ? "notice-item" : "notice-item off"}>
+                <div className="news">
+                  <span className="news-line"><Icon name="bell" size={16} /> <strong>Aviso de dirección</strong></span>
+                  <span className="note-text">{n.text}</span>
+                  <span className="muted hint">{n.author ? `${n.author} · ` : ""}{new Date(n.at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</span>
+                </div>
+                {admin && <button className="btn small" onClick={() => removeNotice(n.id)}>Borrar</button>}
+              </li>
+            ))}
+            {news.filter((n) => n.kind !== "anuncio").map((n) => (
               <li key={n.id} className={new Date(n.at).getTime() > seen ? "" : "off"}>
                 <button className="news" onClick={go(onGoPortal)}>
                   <span className="news-line"><Icon name={n.kind === "nomina" ? "file" : n.kind === "aprobada" ? "check" : "x"} size={16} /> {n.text}</span>

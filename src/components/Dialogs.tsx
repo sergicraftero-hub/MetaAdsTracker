@@ -6,7 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 export interface Field {
   key: string;
   label: string;
-  type?: "text" | "number" | "password" | "select";
+  type?: "text" | "number" | "password" | "select" | "textarea";
   value?: string;
   options?: { value: string; label: string }[];
   hint?: string;
@@ -104,6 +104,8 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
                   <select value={values[f.key] ?? ""} autoFocus={i === 0} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}>
                     {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
+                ) : f.type === "textarea" ? (
+                  <textarea rows={4} value={values[f.key] ?? ""} autoFocus={i === 0} required={f.required} maxLength={f.max} placeholder={f.placeholder} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} />
                 ) : (
                   <input
                     type={f.type === "password" ? "text" : (f.type ?? "text")}

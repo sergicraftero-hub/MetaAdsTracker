@@ -184,7 +184,7 @@ function state(): DemoState {
         contratoUrl: null,
       };
     }),
-    rows: { fichajes: [], solicitudes: [], nominas: [], ajustes: [] },
+    rows: { fichajes: [], solicitudes: [], nominas: [], ajustes: [], anuncios: [] },
     wa: new Map(
       leads.slice(9, 14).map((l, i) => {
         const id = `${String(l.f.telefono).replace(/\D/g, "")}@s.whatsapp.net`;

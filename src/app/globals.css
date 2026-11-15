@@ -680,3 +680,8 @@ tr.is-baja { opacity: 0.55; }
 .cat-table td:nth-child(2) { min-width: 240px; }
 .tier-row { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 400; }
 .tier-row input { width: 86px; min-height: 34px; padding: 4px 8px; font-size: 14px; }
+
+/* ---------- Avisos de dirección ---------- */
+.notice-new { margin: 8px 0 2px; }
+.bell-panel .notice-item { align-items: flex-start; }
+.bell-panel .notice-item .news { cursor: default; }
