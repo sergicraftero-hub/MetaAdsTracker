@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Fields, Lead, LeadsPayload } from "@/lib/types";
 import CallMode from "./CallMode";
+import { CodeGuard } from "./CodeHint";
 import Contracts from "./Contracts";
 import Dashboard from "./Dashboard";
 import { DialogProvider } from "./Dialogs";
@@ -99,11 +100,13 @@ function Shell() {
     const onVisible = () => document.visibilityState === "visible" && load();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("online", load);
+    window.addEventListener("portal-changed", load);
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
     return () => {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("online", load);
+      window.removeEventListener("portal-changed", load);
     };
   }, [load]);
 
@@ -302,6 +305,8 @@ function Shell() {
           </div>
         </div>
       )}
+      {/* El código del día salta en pantalla a quien ha fichado, y de nuevo cada vez que cambia */}
+      <CodeGuard active={data.clockedIn === true && !admin} />
       <PhoneAlerts />
       {toastMsg && (
         <div className={toastMsg.error ? "toast bad" : "toast"} role="status">

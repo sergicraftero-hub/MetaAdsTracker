@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isClosed } from "@/lib/fields";
 import type { Leave, LeadsPayload, Payslip, Person, Shift } from "@/lib/types";
+import CodeHint from "./CodeHint";
 import { useDialogs } from "./Dialogs";
 import Icon from "./Icon";
 import { SHIFT_WARN_MS, api, dayKey, shiftRemaining } from "./util";
@@ -69,6 +70,7 @@ function Clock({ data, toast }: Props) {
       await api("/api/portal/fichaje", "POST", { action });
       toast(ok);
       await load();
+      portalChanged();
     } catch (e) {
       toast((e as Error).message, true);
     }
@@ -111,6 +113,7 @@ function Clock({ data, toast }: Props) {
         {open && now - new Date(open.start).getTime() > 12 * 3600_000 && (
           <p className="error hint">Esta jornada lleva más de 12 horas abierta. Si olvidaste fichar la salida, ficha ahora y pide a dirección que corrija la hora.</p>
         )}
+        {open && <CodeHint big />}
         <div className="contact">
           {!open && <button className="btn primary big" disabled={busy} onClick={() => punch("entrar", "Entrada registrada")}>Entrar</button>}
           {open && !onBreak && <button className="btn big" disabled={busy} onClick={() => punch("pausa", "Descanso iniciado")}>Empezar descanso</button>}

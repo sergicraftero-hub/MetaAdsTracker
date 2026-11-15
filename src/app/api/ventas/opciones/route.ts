@@ -22,6 +22,11 @@ export const GET = handle(async (req: Request) => {
     codes: codes.map((real) => aliasOf(real, codes)),
     // Al comercial solo se le dice qué código; el porqué lleva importes y es para dirección
     recommended: { Movistar: rec.Movistar.code, "No Movistar": rec["No Movistar"].code },
+    // Ventas de fibra que le faltan a ese código para su siguiente tramo (solo el número, sin importes)
+    missing: {
+      Movistar: summary.find((s) => s.code === rec.Movistar.code)?.lotsNext?.need ?? null,
+      "No Movistar": summary.find((s) => s.code === rec["No Movistar"].code)?.lotsNext?.need ?? null,
+    },
     why: admin ? { Movistar: rec.Movistar.why, "No Movistar": rec["No Movistar"].why } : undefined,
     sale: existing ? (admin ? existing : forSeller(existing)) : null,
   });

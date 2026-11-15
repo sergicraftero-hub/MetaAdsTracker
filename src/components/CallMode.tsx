@@ -6,6 +6,7 @@ import { BonusCards } from "./Bonuses";
 import CallButton, { useAwayTimer } from "./CallButton";
 import Icon from "./Icon";
 import SaleForm from "./SaleForm";
+import CodeHint, { salesChanged } from "./CodeHint";
 import Comments, { postComment } from "./Comments";
 import { SOURCE_LABEL, buildPools, nextPick, type Source } from "./queue";
 import { SHIFT_WARN_MS, api, dayKey, fmtAgo, fmtWhen, pretty, shiftRemaining, str, telHref, timeKey, waHref } from "./util";
@@ -42,14 +43,6 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
   const [file, setFile] = useState<File | null>(null);
   const [tick, setTick] = useState(0);
   const away = useAwayTimer();
-  // Código en el que conviene cargar la próxima venta (se refresca tras cada llamada)
-  const [rec, setRec] = useState<Record<"Movistar" | "No Movistar", string> | null>(null);
-  useEffect(() => {
-    api<{ recommended: Record<"Movistar" | "No Movistar", string> }>("/api/ventas/opciones")
-      .then((o) => setRec(o.recommended.Movistar ? o.recommended : null))
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.done]);
   const leadsRef = useRef(data.leads);
   leadsRef.current = data.leads;
   const meRef = useRef(data.me);
@@ -171,7 +164,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
       <div className="call-wrap">
         <section className="card call-start">
           <h2 className="lead-name">Ficha la entrada para empezar</h2>
-          <p className="muted">Los leads se reparten entre quienes están trabajando. En cuanto fiches la entrada te empiezan a salir llamadas.</p>
+          <p className="muted">Al fichar verás el código en el que cargar tus ventas de hoy y cuántas faltan, y te empezarán a salir llamadas.</p>
           <button
             className="btn primary big"
             disabled={busy}
@@ -187,7 +180,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
               setBusy(false);
             }}
           >
-            Fichar entrada
+            Fichar entrada y ver mi código
           </button>
         </section>
       </div>
@@ -234,6 +227,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
               <div><dt>Hechas hoy en esta sesión</dt><dd>{session.done}</dd></div>
             </dl>
           )}
+          <CodeHint big />
           {!data.logReady && (
             <p className="notice">
               Las llamadas aún no se registran para las métricas. Para activarlo, crea en Notion una página llamada «BUT Calls» y
@@ -321,12 +315,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
             </div>
           ))}
         </dl>
-        {rec && (
-          <p className="code-hint">
-            <Icon name="target" size={15} /> Si contrata, cárgalo en <b>{rec.Movistar}</b>
-            {rec["No Movistar"] !== rec.Movistar ? <> (si no viene de Movistar, en <b>{rec["No Movistar"]}</b>)</> : null}
-          </p>
-        )}
+        <CodeHint />
         {previous.length > 0 && <p className="muted hint">Intentos anteriores: {previous.join("  ·  ")}</p>}
 
         <div className="field">
@@ -339,7 +328,10 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
           <div className="step pop">
             <h3>{labelOf(pending).title}</h3>
             {stageOf(pending) === "ganado" ? (
-              <SaleForm lead={lead} toast={toast} submitLabel="Guardar venta y siguiente" onDone={(_sale, f) => finish({ estado: pending, rellamada: null }, f)} />
+              <SaleForm lead={lead} toast={toast} submitLabel="Guardar venta y siguiente" onDone={(_sale, f) => {
+                salesChanged();
+                finish({ estado: pending, rellamada: null }, f);
+              }} />
             ) : (
               <div className="field">
                 <span className="label">

@@ -685,3 +685,15 @@ tr.is-baja { opacity: 0.55; }
 .notice-new { margin: 8px 0 2px; }
 .bell-panel .notice-item { align-items: flex-start; }
 .bell-panel .notice-item .news { cursor: default; }
+
+/* ---------- Código recomendado, más visible ---------- */
+.code-hint { gap: 9px; }
+.code-hint.big { font-size: 15.5px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); text-align: left; justify-self: stretch; width: 100%; }
+.code-hint.big b { font-size: 17px; }
+.code-ico { display: grid; place-items: center; color: var(--navy); flex: none; }
+.code-hint.big .code-ico { width: 38px; height: 38px; border-radius: 12px; background: var(--surface-2); }
+@media (prefers-color-scheme: dark) { .code-ico { color: var(--cream); } }
+.code-modal { justify-items: center; text-align: center; }
+.code-name { font: 600 44px/1 var(--font-brand); margin: 0; }
+.code-modal .btn { width: 100%; }
+.code-hint.big b { display: block; }
