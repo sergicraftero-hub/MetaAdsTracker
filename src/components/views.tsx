@@ -201,13 +201,19 @@ export function Agenda({ data, actions }: Props) {
   const hasCode = !!data.me.code;
   const [scope, setScope] = useState<"mias" | "todas">(hasCode ? "mias" : "todas");
   const [view, setView] = useState<"calendario" | "lista">("calendario");
+  // Dirección no tiene agenda propia: elige ver la global o la de un comercial
+  const [who, setWho] = useState("");
   const list = useMemo(() => {
     const code = data.me.code.trim().toLowerCase();
     return data.leads
       .filter((l) => l.f.rellamada && !isClosed(l.f.estado))
-      .filter((l) => scope === "todas" || str(l.f.comercial).trim().toLowerCase() === code)
+      .filter((l) => {
+        const owner = str(l.f.comercial).trim().toLowerCase();
+        if (!hasCode) return !who || (who === "__nadie" ? !owner : owner === who.toLowerCase());
+        return scope === "todas" || owner === code;
+      })
       .sort((a, b) => callbackTime(a) - callbackTime(b));
-  }, [data.leads, data.me.code, scope]);
+  }, [data.leads, data.me.code, scope, who, hasCode]);
   const groups = useMemo(() => {
     const out: { key: string; title: string; late: boolean; leads: Lead[] }[] = [];
     for (const l of list) {
@@ -239,9 +245,16 @@ export function Agenda({ data, actions }: Props) {
         </div>
         {hasCode && (
           <div className="seg" role="group" aria-label="De quién son las rellamadas">
-            <button className={scope === "mias" ? "active" : ""} onClick={() => setScope("mias")}>Mías</button>
-            <button className={scope === "todas" ? "active" : ""} onClick={() => setScope("todas")}>Todo el equipo</button>
+            <button className={scope === "mias" ? "active" : ""} onClick={() => setScope("mias")}>Personal</button>
+            <button className={scope === "todas" ? "active" : ""} onClick={() => setScope("todas")}>Global</button>
           </div>
+        )}
+        {!hasCode && (
+          <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="De quién es la agenda">
+            <option value="">Global (todo el equipo)</option>
+            {data.comerciales.map((c) => <option key={c} value={c}>Agenda de {c}</option>)}
+            <option value="__nadie">Sin comercial asignado</option>
+          </select>
         )}
       </div>
       {view === "calendario" && <AgendaCalendar list={list} data={data} actions={actions} />}
