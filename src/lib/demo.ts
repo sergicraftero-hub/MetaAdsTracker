@@ -99,6 +99,8 @@ function seed(): Lead[] {
   return leads;
 }
 
+type DemoRow = { id: string; created: string } & Record<string, string | number | boolean | null | undefined>;
+
 interface DemoState {
   leads: Map<string, Lead>;
   users: StoredUser[];
@@ -107,6 +109,9 @@ interface DemoState {
   alerts: (CallAlert & { to: string; at: number })[];
   bonuses: Bonus[];
   wa: Map<string, WaMessage[]>;
+  waLabels: Map<string, string[]>;
+  waUnread: Map<string, boolean>;
+  rows: Record<string, DemoRow[]>;
   n: number;
 }
 
@@ -144,6 +149,9 @@ function state(): DemoState {
     log: seedLog(leads),
     comments: new Map(),
     alerts: [],
+    waLabels: new Map(),
+    waUnread: new Map(),
+    rows: { fichajes: [], solicitudes: [], nominas: [] },
     wa: new Map(
       leads.slice(9, 14).map((l, i) => {
         const id = `${String(l.f.telefono).replace(/\D/g, "")}@s.whatsapp.net`;
@@ -194,9 +202,40 @@ export const demo = {
       .map(([id, ms]) => {
         const last = ms[ms.length - 1];
         const phone = id.replace(/@.*/, "");
-        return { id, phone, name: names.get(phone) ?? "", at: last.at, unread: last.fromMe ? 0 : 1, last: last.text || "[Documento]", lastFromMe: last.fromMe };
+        return { id, phone, name: names.get(phone) ?? "", at: last.at, unread: st.waUnread.has(id) ? (st.waUnread.get(id) ? -1 : 0) : last.fromMe ? 0 : 1, last: last.text || "[Documento]", lastFromMe: last.fromMe, labels: st.waLabels.get(id) ?? (st.wa.get(id)?.length === 3 ? ["Nuevo cliente"] : []) };
       })
       .sort((a, b) => b.at.localeCompare(a.at));
+  },
+  rowsList: (kind: string) => state().rows[kind] ?? [],
+  rowGet(id: string): DemoRow {
+    const row = Object.values(state().rows).flat().find((r) => r.id === id);
+    if (!row) throw new Error("No encontrado");
+    return row;
+  },
+  rowAdd(kind: string, values: Record<string, unknown>, file?: { prop: string; file: File }): DemoRow {
+    const st = state();
+    const row = { id: `row-${++st.n}`, created: new Date().toISOString(), ...values, ...(file ? { [file.prop]: file.file.name, [`${file.prop}Url`]: "/icon-192.png" } : {}) } as DemoRow;
+    (st.rows[kind] ??= []).push(row);
+    return row;
+  },
+  rowSet(_kind: string, id: string, values: Record<string, unknown>): DemoRow {
+    const row = demo.rowGet(id);
+    Object.assign(row, Object.fromEntries(Object.entries(values).filter(([, v]) => v !== undefined)));
+    return row;
+  },
+  rowDel(id: string) {
+    const st = state();
+    for (const k of Object.keys(st.rows)) st.rows[k] = st.rows[k].filter((r) => r.id !== id);
+  },
+  waSetUnread(chatId: string, unread: boolean) {
+    state().waUnread.set(chatId, unread);
+  },
+  waAssign(chatId: string, owner: string, comerciales: string[]): string[] {
+    const st = state();
+    const kept = (st.waLabels.get(chatId) ?? []).filter((l) => !comerciales.includes(l));
+    const next = owner ? [...kept, owner] : kept;
+    st.waLabels.set(chatId, next);
+    return next;
   },
   waMessages: (chatId: string) => state().wa.get(chatId) ?? [],
   waSend(chatId: string, text: string, file: File | undefined, by: string): WaMessage {

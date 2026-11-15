@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { HttpError, handle, requireSession } from "@/lib/auth";
+import { comercialCodes } from "@/lib/people";
 import { store } from "@/lib/store";
 import { chatIdOf, digitsOf } from "@/lib/whapi";
 
@@ -21,7 +22,10 @@ export const GET = handle(async (req: Request) => {
   const messages = await store.waMessages(id);
   // Al abrir el chat se marca como leído el último mensaje recibido
   const lastIn = [...messages].reverse().find((m) => !m.fromMe);
-  if (lastIn && new URL(req.url).searchParams.get("leer") === "1") await store.waMarkRead(lastIn.id).catch(() => {});
+  if (new URL(req.url).searchParams.get("leer") === "1") {
+    if (lastIn) await store.waMarkRead(lastIn.id).catch(() => {});
+    await store.waSetUnread(id, false).catch(() => {});
+  }
   return NextResponse.json({ id, messages });
 });
 
@@ -44,5 +48,14 @@ export const POST = handle(async (req: Request) => {
   } catch (e) {
     console.error("No se pudo marcar WHATSAPP en el lead", e);
   }
-  return NextResponse.json({ message });
+  // Si el chat aún no es de ningún comercial, pasa a ser de quien escribe
+  let labels: string[] | undefined;
+  if (me.code && form?.get("owner") === "") {
+    try {
+      labels = await store.waAssign(id, me.code, await comercialCodes());
+    } catch (e) {
+      console.error("No se pudo etiquetar el chat", e);
+    }
+  }
+  return NextResponse.json({ message, labels });
 });

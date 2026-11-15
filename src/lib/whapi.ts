@@ -63,6 +63,10 @@ const json = (path: string, method = "GET", body?: unknown) =>
     body: body ? JSON.stringify(body) : undefined,
   }).then((r) => r.json());
 
+/** Las etiquetas de WhatsApp llevan a veces caracteres invisibles delante. */
+export const cleanLabel = (s: unknown) => String(s ?? "").replace(/[\u200e\u200f\u202a-\u202e]/g, "").trim();
+const sameLabel = (a: string, b: string) => cleanLabel(a).toLowerCase() === cleanLabel(b).toLowerCase();
+
 export const digitsOf = (s: string) => {
   const d = String(s ?? "").replace(/\D/g, "");
   return d.length === 9 ? `34${d}` : d;
@@ -105,9 +109,11 @@ export async function waChats(count = 150): Promise<WaChat[]> {
         // Whapi no siempre da el nombre del chat: se usa el del remitente del último mensaje recibido
         name: String(c.name ?? (c.last_message && !c.last_message.from_me ? (c.last_message.from_name ?? "") : "")),
         at: new Date(Number(c.timestamp ?? c.last_message?.timestamp ?? 0) * 1000).toISOString(),
-        unread: Number(c.unread ?? 0),
+        // Un chat marcado a mano como no leído puede venir con contador 0 y la etiqueta «No leídos»
+        unread: Number(c.unread ?? 0) || (((c.labels ?? []) as any[]).some((l) => cleanLabel(l.name).toLowerCase() === "no leídos") ? -1 : 0),
         last: last ? last.text || (last.file ? `[${last.file.kind}]` : "") : "",
         lastFromMe: !!last?.fromMe,
+        labels: ((c.labels ?? []) as any[]).map((l) => cleanLabel(l.name)).filter(Boolean),
       };
     })
     .sort((a, b) => b.at.localeCompare(a.at));
@@ -134,9 +140,44 @@ export async function waSend(chatId: string, text: string, file?: File): Promise
   return toMessage(r.message ?? {});
 }
 
+/** Marca el chat como no leído (o leído) en WhatsApp, igual que desde el móvil. */
+export async function waSetUnread(chatId: string, unread: boolean): Promise<void> {
+  await json(`/chats/${encodeURIComponent(chatId)}`, "PATCH", { mark_unread: unread });
+}
+
 export async function waMarkRead(messageId: string): Promise<void> {
   await json(`/messages/${encodeURIComponent(messageId)}`, "PUT");
 }
 
 /** Archivo adjunto de un mensaje (se sirve a través de la app porque necesita el token). */
 export const waMedia = (id: string) => call(`/media/${encodeURIComponent(id)}`, { headers: { Accept: "*/*" } });
+
+/* ---------- Asignación de chats: una etiqueta de WhatsApp Business con el nombre del comercial ---------- */
+
+const COLORS = ["lightskyblue", "gold", "plum", "mediumturquoise", "violet", "greenyellow", "lightpink", "cornflowerblue", "goldenrod", "cyan"];
+
+/**
+ * Asigna el chat a un comercial (o lo deja sin asignar con `owner` vacío).
+ * Quita las etiquetas de otros comerciales y pone la suya, creándola si no existe.
+ */
+export async function waAssign(chatId: string, owner: string, comerciales: string[]): Promise<string[]> {
+  const [labels, chat] = await Promise.all([json("/labels"), json(`/chats/${encodeURIComponent(chatId)}`).catch(() => ({}))]);
+  const all = (Array.isArray(labels) ? labels : (labels?.labels ?? [])) as any[];
+  const current = ((chat?.labels ?? []) as any[]).map((l) => ({ id: String(l.id), name: cleanLabel(l.name) }));
+  const isComercial = (name: string) => comerciales.some((c) => sameLabel(c, name));
+  for (const l of current) {
+    if (isComercial(l.name) && !sameLabel(l.name, owner)) await json(`/labels/${l.id}/${encodeURIComponent(chatId)}`, "DELETE");
+  }
+  let kept = current.filter((l) => !isComercial(l.name) || sameLabel(l.name, owner));
+  if (owner && !kept.some((l) => sameLabel(l.name, owner))) {
+    let label = all.find((l) => sameLabel(l.name, owner));
+    if (!label) {
+      const id = String(Math.max(0, ...all.map((l) => Number(l.id) || 0)) + 1);
+      await json("/labels", "POST", { id, name: owner, color: COLORS[all.length % COLORS.length] });
+      label = { id, name: owner };
+    }
+    await json(`/labels/${label.id}/${encodeURIComponent(chatId)}`, "POST");
+    kept = [...kept, { id: String(label.id), name: owner }];
+  }
+  return kept.map((l) => l.name);
+}

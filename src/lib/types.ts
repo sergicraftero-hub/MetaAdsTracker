@@ -83,6 +83,49 @@ export interface Comment {
   files: { name: string; url: string }[];
 }
 
+/** Jornada fichada por un trabajador. */
+export interface Shift {
+  id: string;
+  user: string;
+  name: string;
+  start: string;
+  end: string | null;
+  breaks: { s: string; e: string | null }[];
+  /** Historial de correcciones hechas por dirección */
+  edits: string;
+  /** false si el registro se ha modificado fuera de la app */
+  valid: boolean;
+}
+
+export type LeaveStatus = "pendiente" | "aprobada" | "rechazada";
+
+/** Solicitud de un trabajador (vacaciones, asuntos propios…) que dirección aprueba o rechaza. */
+export interface Leave {
+  id: string;
+  user: string;
+  name: string;
+  type: string;
+  from: string;
+  to: string;
+  status: LeaveStatus;
+  note: string;
+  resolved: string;
+  created: string;
+}
+
+export interface Payslip {
+  id: string;
+  user: string;
+  name: string;
+  period: string;
+  file: string;
+}
+
+export interface Person {
+  email: string;
+  name: string;
+}
+
 /** Conversación del WhatsApp compartido. */
 export interface WaChat {
   id: string;
@@ -92,6 +135,8 @@ export interface WaChat {
   unread: number;
   last: string;
   lastFromMe: boolean;
+  /** Etiquetas de WhatsApp Business del chat (el comercial asignado es una de ellas) */
+  labels: string[];
 }
 
 export interface WaMessage {

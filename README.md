@@ -10,9 +10,14 @@ CRM de seguimiento comercial de leads. Es una app web instalable (PWA): el mismo
 - **Ficha**: llamar, WhatsApp y email; registrar intento (rellena `1ER/2DO/3ER_INTENTO`, `INTENTOS` y `FECHA_CONTACTO`); cambiar estado; programar rellamada; asignar comercial; notas y contrato.
 - **Notas y contrato**: son los comentarios de la página del lead en Notion, igual que los usa el equipo a mano. La app los lee y añade nuevos (con el nombre de quien escribe delante), y el contrato se sube como archivo adjunto de un comentario (hasta 4 MB).
 - **Llamar desde el ordenador**: en un ordenador, el botón «Llamar» envía un aviso al móvil o tablet donde el mismo usuario tenga la app abierta; al aceptarlo, el teléfono marca el número.
-- **WhatsApp**: bandeja del número compartido del equipo a través de Whapi.Cloud, igual para todos los usuarios: lista de chats, conversación, envío de texto y archivos. Cada mensaje enviado desde la app indica quién lo escribió. Desde la ficha del lead y el modo Llamar, el botón WhatsApp abre el chat integrado con ese lead y marca la casilla `WHATSAPP`.
+- **WhatsApp**: bandeja del número compartido del equipo a través de Whapi.Cloud: lista de chats, conversación, envío de texto y archivos. Cada comercial tiene «Mis chats» (los que llevan su etiqueta o son de sus leads) y «Global» (todos). Un chat se asigna con una etiqueta de WhatsApp Business que lleva el nombre del comercial, así que también se ve desde la app de WhatsApp; quien contesta primero a un chat sin dueño se lo queda. Se puede marcar un chat como no leído y filtrar los no leídos. Cada mensaje enviado desde la app indica quién lo escribió.
 - **Embudo**: tablero por estado; en ordenador se arrastra un lead para cambiarlo de estado.
 - **Panel**: tasas de conversión (a firmado, de contacto y de cierre) para 7, 30 y 90 días, 1 año, máximo o un periodo a medida, filtrando por uno o varios comerciales; evolución por día, semana o mes; desglose por comercial, estado, compañía y gasto. Debajo, la actividad de llamadas por persona.
+- **Portal del empleado**:
+  - *Fichaje*: entrada, descansos y salida con contador en marcha. La hora la pone el servidor. Cada trabajador ve y descarga su registro mensual (CSV); dirección ve el de todos. Solo dirección corrige un registro, con motivo obligatorio, y queda anotado quién, cuándo y el valor anterior. Cada registro lleva una firma: si alguien lo cambia directamente en Notion, la app lo marca como «Alterado».
+  - *Vacaciones*: calendario para pedir vacaciones u otras ausencias; dirección aprueba o rechaza. Las ausencias aprobadas se ven en el calendario de todos.
+  - *Nóminas*: dirección sube el PDF de cada trabajador y mes; cada uno descarga solo las suyas.
+  - *Avisos*: dirección tiene una campana arriba a la derecha con las solicitudes pendientes, para aprobar o rechazar con un clic.
 - **Equipo** (solo dirección): usuarios (alta, edición, acceso y contraseña), bonos (uno para todo el equipo y otros individuales, con premio, meta y periodo) y comprobación de la conexión con Notion.
 
 **Roles.** Dirección ve todo y puede reasignar. Cada comercial ve los leads cuya columna `COMERCIAL` coincide con su código, las rellamadas pendientes de todo el equipo y, por defecto, también los leads que no tienen comercial (se le asignan cuando le salen en la cola). Para que solo vean los suyos: `COMERCIAL_VE_SIN_ASIGNAR=false`.
@@ -31,11 +36,20 @@ Los estados y comerciales se leen de las opciones de las columnas de Notion, as�
 
 ### Datos propios de la app
 
-La app guarda sus propios datos en bases de datos de Notion que crea ella sola dentro de una página llamada exactamente **BUT Calls**, compartida con la integración (`···` → *Conexiones*): «Usuarios», «Registro de llamadas», «Bonos» y «Avisos de llamada». Cada una aparece la primera vez que hace falta.
+La app guarda sus propios datos en bases de datos de Notion que crea ella sola dentro de una página llamada exactamente **BUT Calls**, compartida con la integración (`···` → *Conexiones*): «Usuarios», «Registro de llamadas», «Bonos», «Avisos de llamada», «WhatsApp enviados», «Fichajes», «Solicitudes» y «Nóminas». Cada una aparece la primera vez que hace falta.
 
 En *Equipo → Añadir usuario* se da de alta a cada comercial con su código de la columna `COMERCIAL`. Las contraseñas se guardan cifradas (hash scrypt), nunca en claro.
 
 La integración de Notion necesita permiso para leer y escribir contenido, leer e insertar comentarios y leer usuarios.
+
+### Registro de jornada: qué cubre y qué no
+
+El fichaje está pensado para el registro diario de jornada que exige el artículo 34.9 del Estatuto de los Trabajadores: hora concreta de inicio y fin de cada jornada, disponible para el trabajador, sus representantes y la Inspección de Trabajo, y conservado cuatro años. A tener en cuenta:
+
+- Los registros viven en la base «BUT Calls · Fichajes» de Notion. No los borres antes de cuatro años.
+- Quien tenga acceso de edición a esa base en Notion puede cambiar filas a mano. La app lo detecta y lo marca, pero no lo impide: limita ese acceso a dirección.
+- La app no calcula horas extraordinarias ni controla los límites de jornada; da el total trabajado por día y por mes.
+- Esto no es asesoramiento legal: conviene que vuestra gestoría confirme que encaja con vuestro convenio.
 
 ### WhatsApp compartido (opcional)
 

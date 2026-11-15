@@ -48,9 +48,24 @@ export const store = {
     await notion.addWaAuthor(m.id, chatId, by).catch((e) => console.error("No se pudo anotar el autor del WhatsApp", e));
     return { ...m, by };
   },
+  waAssign: async (chatId: string, owner: string, comerciales: string[]): Promise<string[]> =>
+    isDemo() ? demo.waAssign(chatId, owner, comerciales) : whapi.waAssign(chatId, owner, comerciales),
+  waSetUnread: async (chatId: string, unread: boolean): Promise<void> =>
+    isDemo() ? demo.waSetUnread(chatId, unread) : whapi.waSetUnread(chatId, unread),
   waMarkRead: async (messageId: string): Promise<void> => {
     if (!isDemo()) await whapi.waMarkRead(messageId);
   },
+
+  /* Portal del empleado: tablas genéricas (las columnas se llaman como en Notion) */
+  portalReady: async (): Promise<boolean> => isDemo() || notion.portalReady(),
+  rowsList: async (kind: notion.PortalTable, filter?: unknown): Promise<notion.Row[]> =>
+    isDemo() ? (demo.rowsList(kind) as notion.Row[]) : notion.rowsList(kind, filter),
+  rowGet: async (id: string): Promise<notion.Row> => (isDemo() ? (demo.rowGet(id) as notion.Row) : notion.rowGet(id)),
+  rowAdd: async (kind: notion.PortalTable, values: Record<string, notion.Row[string]>, file?: { prop: string; file: File }): Promise<notion.Row> =>
+    isDemo() ? (demo.rowAdd(kind, values, file) as notion.Row) : notion.rowAdd(kind, values, file),
+  rowSet: async (kind: notion.PortalTable, id: string, values: Record<string, notion.Row[string]>): Promise<notion.Row> =>
+    isDemo() ? (demo.rowSet(kind, id, values) as notion.Row) : notion.rowSet(kind, id, values),
+  rowDel: async (id: string): Promise<void> => (isDemo() ? demo.rowDel(id) : notion.rowDel(id)),
 
   logConfigured: async (): Promise<boolean> => isDemo() || notion.logConfigured(),
   addLog: async (e: Omit<CallLog, "id">): Promise<CallLog | null> => (isDemo() ? demo.addLog(e) : notion.addLog(e)),

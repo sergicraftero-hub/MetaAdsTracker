@@ -155,7 +155,7 @@ interface Cache {
   log: { entries: Map<string, CallLog>; from: number; syncAt: number };
   people?: { at: number; names: Map<string, string> };
 }
-type AppDb = "users" | "log" | "alerts" | "bonus" | "wa";
+type AppDb = "users" | "log" | "alerts" | "bonus" | "wa" | "fichajes" | "solicitudes" | "nominas";
 const g = globalThis as unknown as { __crmNotion?: Cache };
 const cache: Cache = (g.__crmNotion ??= { leads: new Map(), fullAt: 0, syncAt: 0, appDbs: {}, log: { entries: new Map(), from: Infinity, syncAt: 0 } });
 
@@ -309,6 +309,33 @@ const APP_DBS: Record<AppDb, { env: string; title: string; titleProp: string; pr
       Para: { rich_text: {} },
       Activo: { checkbox: {} },
     },
+  },
+  fichajes: {
+    env: "NOTION_FICHAJES_DB_ID",
+    title: "BUT Calls · Fichajes",
+    titleProp: "Registro",
+    props: { Usuario: { rich_text: {} }, Nombre: { rich_text: {} }, Entrada: { date: {} }, Salida: { date: {} }, Descansos: { rich_text: {} }, Correcciones: { rich_text: {} }, Firma: { rich_text: {} } },
+  },
+  solicitudes: {
+    env: "NOTION_SOLICITUDES_DB_ID",
+    title: "BUT Calls · Solicitudes",
+    titleProp: "Solicitud",
+    props: {
+      Usuario: { rich_text: {} },
+      Nombre: { rich_text: {} },
+      Tipo: { select: {} },
+      Desde: { date: {} },
+      Hasta: { date: {} },
+      Estado: { select: { options: [{ name: "pendiente", color: "yellow" }, { name: "aprobada", color: "green" }, { name: "rechazada", color: "red" }] } },
+      Nota: { rich_text: {} },
+      Resuelto: { rich_text: {} },
+    },
+  },
+  nominas: {
+    env: "NOTION_NOMINAS_DB_ID",
+    title: "BUT Calls · Nóminas",
+    titleProp: "Nomina",
+    props: { Usuario: { rich_text: {} }, Nombre: { rich_text: {} }, Periodo: { rich_text: {} }, Archivo: { files: {} } },
   },
   wa: {
     env: "NOTION_WA_DB_ID",
@@ -522,27 +549,32 @@ export async function listComments(pageId: string): Promise<Comment[]> {
   }));
 }
 
+/** Sube un archivo a Notion y devuelve su identificador para adjuntarlo. */
+async function uploadFile(file: File): Promise<string> {
+  const upload = await api("file_uploads", "POST", {
+    mode: "single_part",
+    filename: file.name,
+    content_type: file.type || "application/octet-stream",
+  });
+  const form = new FormData();
+  form.append("file", file, file.name);
+  const sent = await fetch(`https://api.notion.com/v1/file_uploads/${upload.id}/send`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.NOTION_TOKEN}`, "Notion-Version": VERSION },
+    body: form,
+  });
+  if (!sent.ok) {
+    const j = await sent.json().catch(() => ({}));
+    throw new NotionError(`Notion no aceptó el archivo: ${j?.message ?? sent.statusText}`);
+  }
+  return upload.id;
+}
+
 /** Añade un comentario a la página del lead, con un archivo adjunto opcional (por ejemplo el contrato). */
 export async function addComment(pageId: string, text: string, file?: File): Promise<void> {
   const body: any = { parent: { page_id: pageId }, rich_text: richText(text) };
   if (file) {
-    const upload = await api("file_uploads", "POST", {
-      mode: "single_part",
-      filename: file.name,
-      content_type: file.type || "application/octet-stream",
-    });
-    const form = new FormData();
-    form.append("file", file, file.name);
-    const sent = await fetch(`https://api.notion.com/v1/file_uploads/${upload.id}/send`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${process.env.NOTION_TOKEN}`, "Notion-Version": VERSION },
-      body: form,
-    });
-    if (!sent.ok) {
-      const j = await sent.json().catch(() => ({}));
-      throw new NotionError(`Notion no aceptó el archivo: ${j?.message ?? sent.statusText}`);
-    }
-    body.attachments = [{ file_upload_id: upload.id, type: "file_upload" }];
+    body.attachments = [{ file_upload_id: await uploadFile(file), type: "file_upload" }];
   }
   await api("comments", "POST", body);
 }
@@ -657,4 +689,60 @@ export async function waAuthors(chatId: string): Promise<Record<string, string>>
   const out: Record<string, string> = {};
   for (const p of res.results as any[]) out[String(readProp(p.properties?.Mensaje) ?? "")] = String(readProp(p.properties?.Usuario) ?? "");
   return out;
+}
+
+/* ---------- Tablas del portal del empleado (fichajes, solicitudes, nóminas) ---------- */
+
+export type PortalTable = "fichajes" | "solicitudes" | "nominas";
+/** Fila genérica: `id`, `created` y los valores de sus columnas por nombre de propiedad de Notion. */
+export type Row = { id: string; created: string } & Record<string, Value | undefined>;
+
+function toRow(page: any): Row {
+  const row: Row = { id: page.id, created: page.created_time };
+  for (const [name, p] of Object.entries<any>(page.properties ?? {})) {
+    if (p.type === "files") {
+      row[name] = p.files?.[0]?.name ?? null;
+      row[`${name}Url`] = p.files?.[0]?.file?.url ?? p.files?.[0]?.external?.url ?? null;
+    } else row[name] = readProp(p);
+  }
+  return row;
+}
+
+function rowProps(kind: PortalTable, values: Record<string, Value | undefined>): Record<string, unknown> {
+  const def = APP_DBS[kind];
+  const props: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(values)) {
+    if (value === undefined) continue;
+    if (name === def.titleProp) props[name] = writeProp("title", value);
+    else if (def.props[name]) props[name] = writeProp(Object.keys(def.props[name])[0], value);
+  }
+  return props;
+}
+
+export const portalReady = async () => !!(await appDb("fichajes"));
+
+export async function rowsList(kind: PortalTable, filter?: unknown): Promise<Row[]> {
+  const dbId = await appDb(kind);
+  if (!dbId) return [];
+  return (await queryAll(dbId, filter)).map(toRow);
+}
+
+export async function rowGet(id: string): Promise<Row> {
+  return toRow(await api(`pages/${id}`));
+}
+
+export async function rowAdd(kind: PortalTable, values: Record<string, Value | undefined>, file?: { prop: string; file: File }): Promise<Row> {
+  const dbId = await appDb(kind);
+  if (!dbId) throw new NotionError("Falta la página «BUT Calls» en Notion", 400);
+  const properties = rowProps(kind, values);
+  if (file) properties[file.prop] = { files: [{ type: "file_upload", file_upload: { id: await uploadFile(file.file) }, name: file.file.name.slice(0, 100) }] };
+  return toRow(await api("pages", "POST", { parent: { database_id: dbId }, properties }));
+}
+
+export async function rowSet(kind: PortalTable, id: string, values: Record<string, Value | undefined>): Promise<Row> {
+  return toRow(await api(`pages/${id}`, "PATCH", { properties: rowProps(kind, values) }));
+}
+
+export async function rowDel(id: string): Promise<void> {
+  await api(`pages/${id}`, "PATCH", { archived: true });
 }

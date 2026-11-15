@@ -9,9 +9,10 @@ import Team from "./Team";
 import { api } from "./util";
 import { PhoneAlerts } from "./CallButton";
 import { Agenda, LeadList, Pipeline } from "./views";
+import Portal, { Bell } from "./Portal";
 import WhatsApp, { ChatView } from "./WhatsApp";
 
-type Tab = "llamar" | "hoy" | "leads" | "whatsapp" | "embudo" | "panel" | "equipo";
+type Tab = "llamar" | "hoy" | "leads" | "whatsapp" | "embudo" | "panel" | "portal" | "equipo";
 const CACHE_KEY = "but-calls-v1";
 
 const ICONS: Record<Tab, string> = {
@@ -21,9 +22,10 @@ const ICONS: Record<Tab, string> = {
   whatsapp: "M21 12a8.5 8.5 0 0 1-12.6 7.4L3 21l1.7-5.2A8.5 8.5 0 1 1 21 12Z",
   embudo: "M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v6h-4z",
   panel: "M4 20V10M10 20V4M16 20v-7M22 20H2",
+  portal: "M4 7h16v13H4zM9 7V4h6v3M4 12h16",
   equipo: "M16 19v-1a4 4 0 0 0-8 0v1M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM20 19v-1a3 3 0 0 0-2-2.8M4 19v-1a3 3 0 0 1 2-2.8",
 };
-const TITLES: Record<Tab, string> = { llamar: "Llamar", hoy: "Agenda", leads: "Leads", whatsapp: "WhatsApp", embudo: "Embudo", panel: "Panel", equipo: "Equipo" };
+const TITLES: Record<Tab, string> = { llamar: "Llamar", hoy: "Agenda", leads: "Leads", whatsapp: "WhatsApp", embudo: "Embudo", panel: "Panel", portal: "Portal", equipo: "Equipo" };
 
 export interface Actions {
   open: (id: string) => void;
@@ -162,7 +164,7 @@ export default function App() {
   }
 
   const admin = data.me.role === "admin";
-  const tabs: Tab[] = admin ? ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel", "equipo"] : ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel"];
+  const tabs: Tab[] = admin ? ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel", "portal", "equipo"] : ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel", "portal"];
   const lead = selected ? data.leads.find((l) => l.id === selected) : undefined;
 
   return (
@@ -202,13 +204,14 @@ export default function App() {
       <main className="main">
         <header className="top">
           <span className="top-logo only-mobile" role="img" aria-label="BUT Calls" />
-          <h1>{TITLES[tab]}</h1>
+          <h1>{tab === "portal" ? "Portal del empleado" : TITLES[tab]}</h1>
           <div className="top-actions">
             {(data.demo || stale) && (
               <span className={stale ? "pill warn" : "pill"}>{stale ? "Sin conexión · datos guardados" : "Demo"}</span>
             )}
             <button className="btn small only-desktop" onClick={load} title="Actualizar">Actualizar</button>
             <button className="btn primary small" onClick={() => setCreating(true)}>+ Lead</button>
+            {admin && <Bell toast={toast} />}
             <button
               className="btn small only-mobile"
               onClick={async () => {
@@ -226,6 +229,7 @@ export default function App() {
         {tab === "whatsapp" && <WhatsApp data={data} openLead={open} toast={toast} />}
         {tab === "embudo" && <Pipeline data={data} actions={actions} />}
         {tab === "panel" && <Dashboard data={data} />}
+        {tab === "portal" && <Portal data={data} toast={toast} />}
         {tab === "equipo" && admin && <Team data={data} toast={toast} />}
       </main>
 

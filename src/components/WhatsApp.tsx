@@ -30,7 +30,22 @@ async function getJson<T>(url: string): Promise<T> {
 }
 
 /** Conversación de WhatsApp con un número, con caja para escribir y adjuntar. */
-export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast }: { chat: string; title: string; subtitle?: string; onBack?: () => void; onOpenLead?: () => void; toast: (m: string, e?: boolean) => void }) {
+interface ChatProps {
+  chat: string;
+  title: string;
+  subtitle?: string;
+  onBack?: () => void;
+  onOpenLead?: () => void;
+  toast: (m: string, e?: boolean) => void;
+  /** Comercial que lleva el chat ("" si nadie); sin definir, no se muestra el selector */
+  owner?: string;
+  comerciales?: string[];
+  onAssign?: (owner: string) => void;
+  /** Marca el chat como no leído y lo cierra */
+  onUnread?: () => void;
+}
+
+export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast, owner, comerciales, onAssign, onUnread }: ChatProps) {
   const [messages, setMessages] = useState<WaMessage[] | null>(null);
   const [error, setError] = useState("");
   const [text, setText] = useState("");
@@ -76,10 +91,12 @@ export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast }: {
     form.append("id", chat);
     form.append("text", text);
     if (file) form.append("file", file);
+    if (owner !== undefined) form.append("owner", owner);
     const res = await fetch("/api/whatsapp/chat", { method: "POST", body: form }).catch(() => null);
     const j = await res?.json().catch(() => ({}));
     if (res?.ok) {
       setMessages((m) => [...(m ?? []), j.message]);
+      if (j.labels) onAssign?.("__refresh");
       setText("");
       setFile(null);
       setFileKey((k) => k + 1);
@@ -96,6 +113,14 @@ export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast }: {
           <strong>{title}</strong>
           {subtitle && <span className="muted hint">{subtitle}</span>}
         </div>
+        {owner !== undefined && comerciales && onAssign && (
+          <select className="owner" value={owner} aria-label="Comercial que lleva el chat" onChange={(e) => onAssign(e.target.value)}>
+            <option value="">Sin asignar</option>
+            {comerciales.map((c) => <option key={c}>{c}</option>)}
+            {owner && !comerciales.includes(owner) && <option>{owner}</option>}
+          </select>
+        )}
+        {onUnread && <button className="btn small" onClick={onUnread} title="Dejar el chat como no leído para no olvidarlo">No leído</button>}
         {onOpenLead && <button className="btn small" onClick={onOpenLead}>Ver ficha</button>}
       </header>
       <div className="chat-body">
@@ -172,6 +197,9 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
   const [error, setError] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const myCode = data.me.code;
+  const [scope, setScope] = useState<"mios" | "todos">(myCode ? "mios" : "todos");
+  const [onlyUnread, setOnlyUnread] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -192,6 +220,35 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
     for (const l of data.leads) if (l.f.telefono) m.set(digits(l.f.telefono), l);
     return m;
   }, [data.leads]);
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  /** Quién lleva el chat: su etiqueta de comercial en WhatsApp o, si no tiene, el comercial del lead */
+  const ownerOf = (c: WaChat) => c.labels.find((l) => data.comerciales.some((k) => same(k, l))) ?? str(byPhone.get(c.phone)?.f.comercial);
+
+  async function assign(chatId: string, owner: string) {
+    if (owner === "__refresh") return load();
+    try {
+      const res = await fetch("/api/whatsapp/asignar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: chatId, owner }) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error ?? "Error");
+      setInbox((b) => (b ? { ...b, chats: b.chats.map((c) => (c.id === chatId ? { ...c, labels: j.labels } : c)) } : b));
+      toast(owner ? `Chat asignado a ${owner}` : "Chat sin asignar");
+    } catch (e) {
+      toast(`No se pudo asignar: ${(e as Error).message}`, true);
+    }
+  }
+
+  async function markUnread(chatId: string) {
+    try {
+      const res = await fetch("/api/whatsapp/leido", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: chatId, unread: true }) });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Error");
+      setInbox((b) => (b ? { ...b, chats: b.chats.map((c) => (c.id === chatId ? { ...c, unread: c.unread > 0 ? c.unread : -1 } : c)) } : b));
+      setOpen(null);
+      toast("Marcado como no leído");
+    } catch (e) {
+      toast(`No se pudo marcar: ${(e as Error).message}`, true);
+    }
+  }
+
   const nameOf = (c: WaChat) => str(byPhone.get(c.phone)?.f.nombre) || c.name || `+${c.phone}`;
 
   if (error && !inbox) return <section className="card"><p className="error">{error}</p><button className="btn" onClick={load}>Reintentar</button></section>;
@@ -220,7 +277,10 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
     );
   }
 
-  const chats = inbox.chats.filter((c) => !q || `${nameOf(c)} ${c.phone}`.toLowerCase().includes(q.toLowerCase()));
+  const chats = inbox.chats
+    .filter((c) => scope === "todos" || same(ownerOf(c), myCode))
+    .filter((c) => !onlyUnread || c.unread !== 0)
+    .filter((c) => !q || `${nameOf(c)} ${c.phone}`.toLowerCase().includes(q.toLowerCase()));
   const current = inbox.chats.find((c) => c.id === open);
   const typed = digits(q);
   const lead = open ? byPhone.get(open.replace(/@.*/, "")) : undefined;
@@ -228,16 +288,33 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
   return (
     <div className={open ? "wa has-open" : "wa"}>
       <aside className="card wa-list">
+        {myCode && (
+          <div className="seg" role="group" aria-label="Qué chats ver">
+            <button className={scope === "mios" ? "active" : ""} onClick={() => setScope("mios")}>Mis chats</button>
+            <button className={scope === "todos" ? "active" : ""} onClick={() => setScope("todos")}>Global</button>
+          </div>
+        )}
+        <label className="check small-check">
+          <input type="checkbox" checked={onlyUnread} onChange={(e) => setOnlyUnread(e.target.checked)} />
+          Solo no leídos ({inbox.chats.filter((c) => c.unread !== 0 && (scope === "todos" || same(ownerOf(c), myCode))).length})
+        </label>
         <input type="search" placeholder="Buscar chat o escribir un teléfono" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar chat" />
         <p className="muted hint">Número compartido: +{inbox.phone}</p>
         <ul className="rows">
           {chats.map((c) => (
             <li key={c.id} className="row">
-              <button className={c.id === open ? "row-main chat-item on" : "row-main chat-item"} onClick={() => setOpen(c.id)}>
+              <button
+                className={c.id === open ? "row-main chat-item on" : "row-main chat-item"}
+                onClick={() => {
+                  setOpen(c.id);
+                  setInbox((b) => (b ? { ...b, chats: b.chats.map((x) => (x.id === c.id ? { ...x, unread: 0 } : x)) } : b));
+                }}
+              >
                 <span className="row-title">
                   <strong>{nameOf(c)}</strong>
                   {byPhone.has(c.phone) && <span className="chip c-blue">Lead</span>}
-                  {c.unread > 0 && <span className="unread" aria-label={`${c.unread} sin leer`}>{c.unread}</span>}
+                  {ownerOf(c) && <span className="chip c-green">{ownerOf(c)}</span>}
+                  {c.unread !== 0 && <span className="unread" aria-label="Sin leer">{c.unread > 0 ? c.unread : "●"}</span>}
                 </span>
                 <span className="row-sub muted">{c.lastFromMe ? "Tú: " : ""}{c.last || "—"}</span>
               </button>
@@ -248,7 +325,9 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
         {chats.length === 0 && typed.length >= 9 && (
           <button className="btn" onClick={() => setOpen(`${typed}@s.whatsapp.net`)}>Abrir chat con +{typed}</button>
         )}
-        {chats.length === 0 && typed.length < 9 && <p className="muted empty-line">Ningún chat coincide.</p>}
+        {chats.length === 0 && typed.length < 9 && (
+          <p className="muted empty-line">{scope === "mios" && !q ? "Aún no tienes chats asignados. Mira en Global y asígnate los tuyos." : "Ningún chat coincide."}</p>
+        )}
       </aside>
       <section className="card wa-chat">
         {open ? (
@@ -260,6 +339,10 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
             onBack={() => setOpen(null)}
             onOpenLead={lead ? () => openLead(lead.id) : undefined}
             toast={toast}
+            owner={current ? ownerOf(current) : ""}
+            comerciales={data.comerciales}
+            onAssign={(o) => assign(open, o)}
+            onUnread={() => markUnread(open)}
           />
         ) : (
           <p className="muted empty-line">Elige un chat de la lista.</p>

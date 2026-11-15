@@ -29,6 +29,9 @@ export class HttpError extends Error {
 
 const sign = (data: string) => createHmac("sha256", secret()).update(data).digest("base64url");
 
+/** Firma corta de un texto con la clave del servidor (para detectar registros alterados fuera de la app). */
+export const seal = (data: string) => sign(data).slice(0, 32);
+
 export function makeToken(s: Omit<Session, "exp">): string {
   const data = Buffer.from(JSON.stringify({ ...s, exp: Date.now() + MAX_AGE * 1000 })).toString("base64url");
   return `${data}.${sign(data)}`;

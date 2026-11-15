@@ -26,8 +26,6 @@ interface Current {
   called: boolean;
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const clock = (s: number) => `${Math.floor(s / 60)}:${pad(s % 60)}`;
 
 export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
   const [active, setActive] = useState(false);
@@ -186,7 +184,6 @@ export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
 
   /* ----- Lead actual ----- */
   const f = lead.f;
-  const elapsed = Math.max(0, Math.round((Date.now() - new Date(cur.shownAt).getTime()) / 1000));
   const previous = [f.intento1, f.intento2, f.intento3].filter(Boolean).map(str);
   const answers: [string, string][] = [
     ["Compañía actual", pretty(f.compania)],
@@ -204,9 +201,6 @@ export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
         <span className={`pill src-${cur.source}`}>
           {SOURCE_LABEL[cur.source]}
           {cur.source === "rellamada" && f.rellamada ? ` · ${fmtWhen(f.rellamada)}` : ""}
-        </span>
-        <span className="muted">
-          {session.done} hechas · quedan {total} · {clock(elapsed)}
         </span>
         <button className="btn small" onClick={() => setActive(false)}>Pausar</button>
       </div>

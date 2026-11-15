@@ -378,3 +378,36 @@ button.icon-btn { cursor: pointer; color: inherit; padding: 0; }
   .msg.me .note-text { color: #e9f5ee; }
   .msg.me .msg-meta { color: #a9cdb9; }
 }
+.chat-head .owner { width: auto; min-height: 34px; padding: 4px 8px; font-size: 13px; max-width: 150px; }
+.wa-list .seg { align-self: flex-start; }
+
+/* ---------- Portal del empleado ---------- */
+.clock { display: grid; gap: 10px; justify-items: center; text-align: center; padding: 24px 16px; }
+.clock-time { font-size: clamp(44px, 12vw, 72px); font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.05; letter-spacing: 0.01em; }
+.clock .contact { width: min(460px, 100%); }
+.pill.on { background: #dbeddb; color: #1e4a31; }
+.btn.danger { border-color: #b3261e; color: #b3261e; }
+.month-nav { display: flex; align-items: center; gap: 8px; }
+.month-nav strong { min-width: 130px; text-align: center; }
+tfoot th, tfoot td { border-top: 2px solid var(--border); }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 10px; }
+.cal-head { text-align: center; font-size: 12px; font-weight: 600; color: var(--muted); padding: 4px 0; }
+.cal-day { min-height: 62px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 4px 5px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; cursor: pointer; min-width: 0; font-weight: 600; }
+.cal-day.out { opacity: 0.4; }
+.cal-day.weekend { background: var(--surface-2); }
+.cal-day.sel { border-color: var(--series); box-shadow: inset 0 0 0 1px var(--series); }
+.cal-marks { display: flex; flex-wrap: wrap; gap: 2px; min-width: 0; }
+.cal-marks .chip { font-style: normal; font-size: 10px; padding: 0 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.newuser.first { margin-top: 0; padding-top: 0; border-top: 0; }
+.cal + .step { margin-top: 12px; }
+.bell { position: relative; }
+.bell-btn { position: relative; }
+.badge { position: absolute; top: -6px; right: -6px; background: #b3261e; color: #fff; font-size: 11px; font-weight: 700; border-radius: 99px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 5px; }
+.bell-panel { position: absolute; right: 0; top: calc(100% + 8px); width: min(380px, calc(100vw - 32px)); z-index: 30; max-height: 70vh; overflow-y: auto; }
+@media (prefers-color-scheme: dark) {
+  .pill.on { background: #2a5340; color: #d9f0e0; }
+  .btn.danger { border-color: #ff8a80; color: #ff8a80; }
+}
+label.small-check { font-size: 13.5px; }
+label.small-check input { width: 18px; height: 18px; }
+.wa-list > * { flex-shrink: 0; }
