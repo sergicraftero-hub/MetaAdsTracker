@@ -639,3 +639,24 @@ thead th { text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
 .calllist .small-check { flex: none; white-space: nowrap; }
 .result-cell { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .result-cell .pill { font-size: 11.5px; padding: 2px 8px; }
+
+/* ---------- Contrataciones ---------- */
+.sale-form { display: grid; gap: 12px; }
+.sale-summary ul { margin: 0 0 4px; padding-left: 18px; }
+.prod-list { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 6px; }
+.prod-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px 8px 6px 12px; }
+.prod-list span { display: grid; min-width: 0; }
+.prod-list b { font-weight: 600; color: var(--text); font-size: 14.5px; }
+.prod-list small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.notice.read { display: flex; gap: 6px; align-items: flex-start; }
+.sale-form .seg { flex-wrap: wrap; }
+.code-hint { display: flex; align-items: center; gap: 6px; font-size: 13.5px; background: var(--surface-2); border-radius: 10px; padding: 7px 10px; }
+.codes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 8px 0; }
+.code-card { border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: grid; gap: 8px; }
+.code-line { display: grid; gap: 4px; font-size: 14px; }
+tr.is-baja { opacity: 0.55; }
+.block { display: block; }
+.modal.preview { width: min(900px, 100%); height: min(88vh, 900px); display: flex; flex-direction: column; gap: 10px; }
+.modal.preview iframe, .modal.preview img { flex: 1; width: 100%; min-height: 0; border: 1px solid var(--border); border-radius: 10px; background: #fff; object-fit: contain; }
+.modal.wide { max-height: 92vh; }
+.table-wrap td.cell-actions { white-space: nowrap; }

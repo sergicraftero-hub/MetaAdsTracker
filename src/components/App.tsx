@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Fields, Lead, LeadsPayload } from "@/lib/types";
 import CallMode from "./CallMode";
+import Contracts from "./Contracts";
 import Dashboard from "./Dashboard";
 import { DialogProvider } from "./Dialogs";
 import Help from "./Help";
@@ -15,7 +16,7 @@ import { Agenda, LeadList, Pipeline } from "./views";
 import Portal, { Bell } from "./Portal";
 import WhatsApp, { ChatView } from "./WhatsApp";
 
-type Tab = "llamar" | "hoy" | "leads" | "whatsapp" | "embudo" | "panel" | "portal" | "equipo" | "ayuda";
+type Tab = "llamar" | "hoy" | "leads" | "whatsapp" | "embudo" | "panel" | "contratos" | "portal" | "equipo" | "ayuda";
 /** Pestañas fijas en la barra del móvil; el resto va dentro de «Más» */
 const PRIMARY: Tab[] = ["llamar", "hoy", "whatsapp", "portal"];
 const CACHE_KEY = "but-calls-v1";
@@ -27,11 +28,12 @@ const ICONS: Record<Tab, string> = {
   whatsapp: "M21 12a8.5 8.5 0 0 1-12.6 7.4L3 21l1.7-5.2A8.5 8.5 0 1 1 21 12Z",
   embudo: "M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v6h-4z",
   panel: "M4 20V10M10 20V4M16 20v-7M22 20H2",
+  contratos: "M7 3h7l4 4v14H7zM14 3v4h4M10 12l1.5 1.5L15 10M10 17h5",
   portal: "M4 7h16v13H4zM9 7V4h6v3M4 12h16",
   ayuda: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01",
   equipo: "M16 19v-1a4 4 0 0 0-8 0v1M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM20 19v-1a3 3 0 0 0-2-2.8M4 19v-1a3 3 0 0 1 2-2.8",
 };
-const TITLES: Record<Tab, string> = { llamar: "Llamar", hoy: "Agenda", leads: "Leads", whatsapp: "WhatsApp", embudo: "Embudo", panel: "Panel", portal: "Portal", ayuda: "Ayuda", equipo: "Equipo" };
+const TITLES: Record<Tab, string> = { llamar: "Llamar", hoy: "Agenda", leads: "Leads", whatsapp: "WhatsApp", embudo: "Embudo", panel: "Panel", contratos: "Contratos", portal: "Portal", ayuda: "Ayuda", equipo: "Equipo" };
 
 export interface Actions {
   open: (id: string) => void;
@@ -179,7 +181,7 @@ function Shell() {
   }
 
   const admin = data.me.role === "admin";
-  const tabs: Tab[] = admin ? ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel", "portal", "equipo", "ayuda"] : ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel", "portal", "ayuda"];
+  const tabs: Tab[] = admin ? ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel", "contratos", "portal", "equipo", "ayuda"] : ["llamar", "hoy", "leads", "whatsapp", "embudo", "panel", "portal", "ayuda"];
   const lead = selected ? data.leads.find((l) => l.id === selected) : undefined;
 
   return (
@@ -223,7 +225,7 @@ function Shell() {
       <main className="main">
         <header className="top">
           <span className="top-logo only-mobile" role="img" aria-label="BUT Calls" />
-          <h1>{tab === "portal" ? "Portal del empleado" : TITLES[tab]}</h1>
+          <h1>{tab === "portal" ? "Portal del empleado" : tab === "contratos" ? "Contrataciones" : TITLES[tab]}</h1>
           <div className="top-actions">
             {(data.demo || stale) && (
               <span className={stale ? "pill warn" : "pill"}>{stale ? "Sin conexión · datos guardados" : "Demo"}</span>
@@ -240,6 +242,7 @@ function Shell() {
         {tab === "whatsapp" && <WhatsApp data={data} openLead={open} toast={toast} />}
         {tab === "embudo" && <Pipeline data={data} actions={actions} />}
         {tab === "panel" && <Dashboard data={data} onOpenLead={open} />}
+        {tab === "contratos" && admin && <Contracts data={data} toast={toast} />}
         {tab === "portal" && <Portal data={data} toast={toast} />}
         {tab === "ayuda" && <Help data={data} goTo={setTab} />}
         {tab === "equipo" && admin && <Team data={data} toast={toast} />}

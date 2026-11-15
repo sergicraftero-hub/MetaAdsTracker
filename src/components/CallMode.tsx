@@ -5,6 +5,7 @@ import type { Lead, LeadsPayload } from "@/lib/types";
 import { BonusCards } from "./Bonuses";
 import CallButton, { useAwayTimer } from "./CallButton";
 import Icon from "./Icon";
+import SaleForm from "./SaleForm";
 import Comments, { postComment } from "./Comments";
 import { SOURCE_LABEL, buildPools, nextPick, type Source } from "./queue";
 import { SHIFT_WARN_MS, api, dayKey, fmtAgo, fmtWhen, pretty, shiftRemaining, str, telHref, timeKey, waHref } from "./util";
@@ -41,6 +42,14 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
   const [file, setFile] = useState<File | null>(null);
   const [tick, setTick] = useState(0);
   const away = useAwayTimer();
+  // Código en el que conviene cargar la próxima venta (se refresca tras cada llamada)
+  const [rec, setRec] = useState<Record<"Movistar" | "No Movistar", string> | null>(null);
+  useEffect(() => {
+    api<{ recommended: Record<"Movistar" | "No Movistar", string> }>("/api/ventas/opciones")
+      .then((o) => setRec(o.recommended.Movistar ? o.recommended : null))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.done]);
   const leadsRef = useRef(data.leads);
   leadsRef.current = data.leads;
   const meRef = useRef(data.me);
@@ -100,12 +109,12 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
     setBusy(false);
   }, [replaceLead, toast]);
 
-  async function finish(fields: Record<string, unknown> | null) {
+  async function finish(fields: Record<string, unknown> | null, attach: File | null = file) {
     if (!cur || !lead) return;
     setBusy(true);
     try {
       // La nota y el contrato van primero, como comentario en la página del lead en Notion
-      if (fields && (notes.trim() || file)) await postComment(cur.id, notes.trim() || (file ? "Contrato firmado" : ""), file);
+      if (fields && (notes.trim() || attach)) await postComment(cur.id, notes.trim() || (attach ? "Contrato firmado" : ""), attach);
       const body = { fields: fields ?? {}, skipped: fields === null, shownAt: cur.shownAt, called: cur.called, source: cur.source, away: away.read() };
       const saved = (await api<{ lead: Lead; logged: boolean }>(`/api/leads/${cur.id}/llamada`, "POST", body)).lead;
       replaceLead(saved);
@@ -312,6 +321,12 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
             </div>
           ))}
         </dl>
+        {rec && (
+          <p className="code-hint">
+            <Icon name="target" size={15} /> Si contrata, cárgalo en <b>{rec.Movistar}</b>
+            {rec["No Movistar"] !== rec.Movistar ? <> (si no viene de Movistar, en <b>{rec["No Movistar"]}</b>)</> : null}
+          </p>
+        )}
         {previous.length > 0 && <p className="muted hint">Intentos anteriores: {previous.join("  ·  ")}</p>}
 
         <div className="field">
@@ -324,10 +339,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
           <div className="step pop">
             <h3>{labelOf(pending).title}</h3>
             {stageOf(pending) === "ganado" ? (
-              <label>
-                Contrato firmado (opcional, PDF o foto de hasta 4 MB)
-                <input type="file" accept="application/pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-              </label>
+              <SaleForm lead={lead} toast={toast} submitLabel="Guardar venta y siguiente" onDone={(_sale, f) => finish({ estado: pending, rellamada: null }, f)} />
             ) : (
               <div className="field">
                 <span className="label">
@@ -347,13 +359,15 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
             )}
             <div className="contact">
               <button className="btn" disabled={busy} onClick={() => setPending(null)}>Atrás</button>
-              <button
-                className="btn primary"
-                disabled={busy || (pending.toUpperCase() === "RELLAMAR" && !cbDate) || (!!file && file.size > 4 * 1024 * 1024)}
-                onClick={confirmPending}
-              >
-                {busy ? "Guardando…" : "Guardar y siguiente"}
-              </button>
+              {stageOf(pending) !== "ganado" && (
+                <button
+                  className="btn primary"
+                  disabled={busy || (pending.toUpperCase() === "RELLAMAR" && !cbDate) || (!!file && file.size > 4 * 1024 * 1024)}
+                  onClick={confirmPending}
+                >
+                  {busy ? "Guardando…" : "Guardar y siguiente"}
+                </button>
+              )}
             </div>
             {file && file.size > 4 * 1024 * 1024 && <p className="error">El archivo supera los 4 MB.</p>}
           </div>

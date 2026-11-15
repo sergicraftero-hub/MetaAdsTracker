@@ -6,6 +6,7 @@ import type { Actions } from "./App";
 import CallButton from "./CallButton";
 import Comments from "./Comments";
 import Icon from "./Icon";
+import SaleForm from "./SaleForm";
 import { dayKey, fmtAgo, fmtWhen, parseWhen, pretty, str, telHref, timeKey, waHref } from "./util";
 import { Chip } from "./views";
 
@@ -162,6 +163,13 @@ export default function LeadDetail({ lead, data, actions, onClose }: Props) {
             </label>
 
           </section>
+
+          {stageOf(f.estado) === "ganado" && (
+            <section className="card inner">
+              <h3>Contratación</h3>
+              <SaleForm lead={lead} toast={actions.toast} />
+            </section>
+          )}
 
           <section className="card inner">
             <h3>Notas y contrato</h3>

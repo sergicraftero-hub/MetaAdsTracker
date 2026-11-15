@@ -155,6 +155,8 @@ interface Cache {
   log: { entries: Map<string, CallLog>; from: number; syncAt: number };
   people?: { at: number; names: Map<string, string> };
   ensured?: Set<string>;
+  seg?: { at: number; id: string; cols: Record<string, { name: string; type: string; options?: string[] }> };
+  segRows?: { at: number; rows: SegRow[] };
 }
 type AppDb = "users" | "log" | "alerts" | "bonus" | "wa" | "fichajes" | "solicitudes" | "nominas" | "locks" | "ajustes";
 const g = globalThis as unknown as { __crmNotion?: Cache };
@@ -866,4 +868,132 @@ export async function unlockLead(leadId: string, user: string): Promise<void> {
   for (const l of await activeLocks(dbId, leadId)) {
     if (l.user === user) await api(`pages/${l.id}`, "PATCH", { archived: true }).catch(() => {});
   }
+}
+
+/* ---------- «Seguimiento O2»: la base de contrataciones del cliente ---------- */
+
+/** Columnas de «Seguimiento O2» que usa la app, con el nombre que tienen en Notion. */
+const SEG_COLS = {
+  nombre: "Nombre",
+  dni: "DNI",
+  telefono: "Número de contacto",
+  fecha: "Fecha",
+  instFibra: "Fecha instalación fibra",
+  instPorta: "Fecha instalación portabilidad",
+  estado: "Estado",
+  codigo: "Codigo de carga",
+  comision: "Comisión",
+  cobrado: "Cobrado",
+  comentarios: "Comentarios",
+  // Columnas que añade la app si no existen
+  productos: "Productos",
+  origen: "Origen",
+  primera: "Primera residencia",
+  comercial: "Comercial",
+  leadId: "LeadId",
+  baja: "Baja",
+  contrato: "Contrato",
+} as const;
+export type SegKey = keyof typeof SEG_COLS;
+const SEG_EXTRA: Partial<Record<SegKey, any>> = {
+  productos: { rich_text: {} },
+  origen: { select: { options: [{ name: "Movistar", color: "blue" }, { name: "No Movistar", color: "green" }] } },
+  primera: { checkbox: {} },
+  comercial: { rich_text: {} },
+  leadId: { rich_text: {} },
+  baja: { checkbox: {} },
+  contrato: { files: {} },
+};
+export type SegRow = { id: string; created: string } & Partial<Record<SegKey, Value>> & { contratoUrl?: string | null };
+
+/** Localiza «Seguimiento O2» (por variable de entorno o por su título) y añade las columnas que le falten. */
+async function seg() {
+  if (cache.seg && Date.now() - cache.seg.at < 5 * 60_000) return cache.seg;
+  let id = cleanId(process.env.NOTION_SEGUIMIENTO_DB_ID ?? "");
+  if (!id) {
+    const found = await api("search", "POST", { query: "Seguimiento O2", filter: { property: "object", value: "database" }, page_size: 20 });
+    const db = (found.results as any[]).find((d) => norm((d.title ?? []).map((t: any) => t.plain_text).join("")) === "seguimiento o2");
+    if (!db) throw new NotionError("No encuentro la base «Seguimiento O2» en Notion. Compártela con la integración (··· → Conexiones).", 400);
+    id = db.id;
+  }
+  let db = await api(`databases/${id}`);
+  const have = new Set(Object.keys(db.properties).map(norm));
+  const missing = Object.fromEntries(
+    (Object.entries(SEG_EXTRA) as [SegKey, any][]).filter(([k]) => !have.has(norm(SEG_COLS[k]))).map(([k, def]) => [SEG_COLS[k], def]),
+  );
+  if (Object.keys(missing).length) db = await api(`databases/${id}`, "PATCH", { properties: missing });
+  const byNorm = new Map<string, any>(Object.entries<any>(db.properties).map(([name, p]) => [norm(name), { ...p, name }]));
+  const cols: Record<string, { name: string; type: string; options?: string[] }> = {};
+  for (const [key, label] of Object.entries(SEG_COLS)) {
+    const p = byNorm.get(norm(label));
+    if (p) cols[key] = { name: p.name, type: p.type, options: p[p.type]?.options?.map((o: any) => o.name) };
+  }
+  cache.seg = { at: Date.now(), id, cols };
+  return cache.seg;
+}
+
+function toSeg(page: any, cols: Record<string, { name: string; type: string }>): SegRow {
+  const row: SegRow = { id: page.id, created: page.created_time };
+  for (const [key, c] of Object.entries(cols)) {
+    const p = page.properties?.[c.name];
+    if (c.type === "files") {
+      row.contrato = p?.files?.[0]?.name ?? null;
+      row.contratoUrl = p?.files?.[0]?.file?.url ?? p?.files?.[0]?.external?.url ?? null;
+    } else row[key as SegKey] = readProp(p);
+  }
+  return row;
+}
+
+async function segProps(values: Partial<Record<SegKey, Value>>, file?: File): Promise<Record<string, unknown>> {
+  const { cols } = await seg();
+  const props: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(values) as [SegKey, Value | undefined][]) {
+    const c = cols[key];
+    if (!c || value === undefined || c.type === "files") continue;
+    props[c.name] = writeProp(c.type, value);
+  }
+  if (file && cols.contrato) props[cols.contrato.name] = { files: [{ type: "file_upload", file_upload: { id: await uploadFile(file) }, name: file.name.slice(0, 100) }] };
+  return props;
+}
+
+/** Opciones de las columnas de estado y de código de carga, tal como están en Notion. */
+export async function segOptions(): Promise<{ estados: string[]; codigos: string[] }> {
+  const { cols } = await seg();
+  return { estados: cols.estado?.options ?? [], codigos: cols.codigo?.options ?? [] };
+}
+
+export async function segList(force = false): Promise<SegRow[]> {
+  if (!force && cache.segRows && Date.now() - cache.segRows.at < 20_000) return cache.segRows.rows;
+  const { id, cols } = await seg();
+  const rows = (await queryAll(id)).map((p) => toSeg(p, cols));
+  cache.segRows = { at: Date.now(), rows };
+  return rows;
+}
+
+export async function segGet(id: string): Promise<SegRow> {
+  const { cols } = await seg();
+  return toSeg(await api(`pages/${id}`), cols);
+}
+
+export async function segAdd(values: Partial<Record<SegKey, Value>>, file?: File): Promise<SegRow> {
+  const { id, cols } = await seg();
+  const page = await api("pages", "POST", { parent: { database_id: id }, properties: await segProps(values, file) });
+  cache.segRows = undefined;
+  return toSeg(page, cols);
+}
+
+export async function segSet(id: string, values: Partial<Record<SegKey, Value>>, file?: File): Promise<SegRow> {
+  const { cols } = await seg();
+  const page = await api(`pages/${id}`, "PATCH", { properties: await segProps(values, file) });
+  cache.segRows = undefined;
+  return toSeg(page, cols);
+}
+
+/** Añade un código de carga nuevo a la lista de opciones de Notion. */
+export async function segAddCode(name: string): Promise<void> {
+  const { id, cols } = await seg();
+  const c = cols.codigo;
+  if (!c || (c.options ?? []).includes(name)) return;
+  await api(`databases/${id}`, "PATCH", { properties: { [c.name]: { select: { options: [...(c.options ?? []).map((n) => ({ name: n })), { name }] } } } });
+  cache.seg = undefined;
 }

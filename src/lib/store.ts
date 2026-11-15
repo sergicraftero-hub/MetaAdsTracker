@@ -64,6 +64,16 @@ export const store = {
     isDemo() ? demo.lockLead(leadId, user) : notion.lockLead(leadId, name, user),
   unlockLead: async (leadId: string, user: string): Promise<void> => (isDemo() ? demo.unlockLead(leadId, user) : notion.unlockLead(leadId, user)),
 
+  /* Contrataciones: la base «Seguimiento O2» del cliente */
+  segOptions: async (): Promise<{ estados: string[]; codigos: string[] }> => (isDemo() ? demo.segOptions() : notion.segOptions()),
+  segList: async (force = false): Promise<notion.SegRow[]> => (isDemo() ? (demo.segList() as notion.SegRow[]) : notion.segList(force)),
+  segGet: async (id: string): Promise<notion.SegRow> => (isDemo() ? (demo.segGet(id) as notion.SegRow) : notion.segGet(id)),
+  segAdd: async (values: Partial<Record<notion.SegKey, notion.SegRow[notion.SegKey]>>, file?: File): Promise<notion.SegRow> =>
+    isDemo() ? (demo.segAdd(values, file) as notion.SegRow) : notion.segAdd(values, file),
+  segSet: async (id: string, values: Partial<Record<notion.SegKey, notion.SegRow[notion.SegKey]>>, file?: File): Promise<notion.SegRow> =>
+    isDemo() ? (demo.segSet(id, values, file) as notion.SegRow) : notion.segSet(id, values, file),
+  segAddCode: async (name: string): Promise<void> => (isDemo() ? demo.segAddCode(name) : notion.segAddCode(name)),
+
   /* Portal del empleado: tablas genéricas (las columnas se llaman como en Notion) */
   portalReady: async (): Promise<boolean> => isDemo() || notion.portalReady(),
   rowsList: async (kind: notion.PortalTable, filter?: unknown): Promise<notion.Row[]> =>

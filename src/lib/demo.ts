@@ -113,6 +113,9 @@ interface DemoState {
   waLabels: Map<string, string[]>;
   waUnread: Map<string, boolean>;
   locks: Map<string, { user: string; at: number }>;
+  /** Contrataciones de demostración (hace de «Seguimiento O2») */
+  seg: Record<string, unknown>[];
+  segCodes: string[];
   rows: Record<string, DemoRow[]>;
   n: number;
 }
@@ -154,6 +157,33 @@ function state(): DemoState {
     waLabels: new Map(),
     waUnread: new Map(),
     locks: new Map(),
+    segCodes: ["LT000001 Tienda Centro", "LT000002 Tienda Norte"],
+    seg: Array.from({ length: 9 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i * 2);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return {
+        id: `seg-${i + 1}`,
+        created: d.toISOString(),
+        nombre: ["Lucía Demo Uno", "Marcos Prueba Dos", "Elena Ejemplo Tres", "Jorge Ficticio Cuatro", "Nuria Muestra Cinco", "Pablo Ensayo Seis", "Irene Demo Uno", "Sergio Prueba Dos", "Marta Ejemplo Tres"][i],
+        dni: `0000000${i}X`,
+        telefono: `60000010${i}`,
+        fecha: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+        estado: ["Pdt instalación", "Listo", "Es movistar", "Listo", "Pdt cita", "Listo", "Incidencia", "Listo", "Listo"][i],
+        codigo: i % 3 === 2 ? "LT000002 Tienda Norte" : "LT000001 Tienda Centro",
+        comision: [105, 92, 120, 80, 117, 65, 105, 125, 83][i],
+        cobrado: false,
+        comentarios: "",
+        productos: i < 5 ? JSON.stringify([["ftv-600-60-n"], ["ffm-1g-120"], ["ftv-1g-375-n"], ["ffm-600-60"], ["ftv-600-60-dn"]][i]) : "",
+        origen: i % 2 ? "No Movistar" : "Movistar",
+        primera: true,
+        comercial: i % 2 ? "LUIS" : "ANA",
+        leadId: "",
+        baja: i === 6,
+        contrato: null,
+        contratoUrl: null,
+      };
+    }),
     rows: { fichajes: [], solicitudes: [], nominas: [], ajustes: [] },
     wa: new Map(
       leads.slice(9, 14).map((l, i) => {
@@ -208,6 +238,28 @@ export const demo = {
         return { id, phone, name: names.get(phone) ?? "", at: last.at, unread: st.waUnread.has(id) ? (st.waUnread.get(id) ? -1 : 0) : last.fromMe ? 0 : 1, last: last.text || "[Documento]", lastFromMe: last.fromMe, labels: st.waLabels.get(id) ?? (st.wa.get(id)?.length === 3 ? ["Nuevo cliente"] : []) };
       })
       .sort((a, b) => b.at.localeCompare(a.at));
+  },
+  segOptions: () => ({ estados: ["Pdt cita", "Es movistar", "Pdt instalación", "Pdt portabilidad", "Incidencia", "Listo"], codigos: state().segCodes }),
+  segList: () => state().seg,
+  segGet(id: string) {
+    const row = state().seg.find((r) => r.id === id);
+    if (!row) throw new Error("Contratación no encontrada");
+    return row;
+  },
+  segAdd(values: Record<string, unknown>, file?: File) {
+    const st = state();
+    const row = { id: `seg-${++st.n}`, created: new Date().toISOString(), cobrado: false, baja: false, ...values, contrato: file?.name ?? null, contratoUrl: file ? "/icon-192.png" : null };
+    st.seg.unshift(row);
+    return row;
+  },
+  segSet(id: string, values: Record<string, unknown>, file?: File) {
+    const row = demo.segGet(id);
+    Object.assign(row, Object.fromEntries(Object.entries(values).filter(([, v]) => v !== undefined)), file ? { contrato: file.name, contratoUrl: "/icon-192.png" } : {});
+    return row;
+  },
+  segAddCode(name: string) {
+    const st = state();
+    if (!st.segCodes.includes(name)) st.segCodes.push(name);
   },
   lockLead(leadId: string, user: string): boolean {
     const st = state();

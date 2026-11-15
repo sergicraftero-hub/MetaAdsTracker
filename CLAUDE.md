@@ -10,3 +10,4 @@ CRM de seguimiento comercial (Next.js, PWA) sobre Notion. Ver `README.md` para q
 - No escribir en el Notion ni en el WhatsApp reales del cliente para probar sin su permiso; el modo demostración (sin `NOTION_TOKEN`) cubre las pruebas.
 - Al comercial, lo mínimo: nada de contadores de leads pendientes ni estadísticas de más. El detalle es para dirección.
 - **Estilo visual.** Sin emojis: usar los iconos de `src/components/Icon.tsx`. Sin `window.confirm` ni `window.prompt`: usar `useDialogs()` de `src/components/Dialogs.tsx`. Mantener el azul marino, el crema y la tipografía del logo.
+- **Dinero.** Las comisiones, los importes y el nombre real de los códigos de carga son solo para dirección. `src/lib/catalog.ts` y `src/lib/sales.ts` no se importan desde componentes; lo que vaya al comercial pasa por `forSeller` / `catalogFor(false)`.

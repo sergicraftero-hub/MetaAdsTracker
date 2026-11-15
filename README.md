@@ -13,6 +13,7 @@ CRM de seguimiento comercial de leads. Es una app web instalable (PWA): el mismo
 - **WhatsApp**: bandeja del número compartido del equipo a través de Whapi.Cloud: lista de chats, conversación, envío de texto y archivos. Cada comercial tiene «Mis chats» (los que llevan su etiqueta o son de sus leads) y «Global» (todos). Un chat se asigna con una etiqueta de WhatsApp Business que lleva el nombre del comercial, así que también se ve desde la app de WhatsApp; quien contesta primero a un chat sin dueño se lo queda. Se puede marcar un chat como no leído y filtrar los no leídos. Cada mensaje enviado desde la app indica quién lo escribió. Cada usuario tiene sus mensajes preparados (por ejemplo «No localizado»), que se pegan en la caja con el nombre del cliente y se editan en «Mis mensajes».
 - **Embudo**: tablero por estado; en ordenador se arrastra un lead para cambiarlo de estado.
 - **Panel**: tasas de conversión (a firmado, de contacto y de cierre) para 7, 30 y 90 días, 1 año, máximo o un periodo a medida, filtrando por uno o varios comerciales; evolución por día, semana o mes; desglose por comercial, estado, compañía y gasto. Debajo, la actividad de llamadas por persona y el registro de llamadas una a una (quién llamó a quién, teléfono, hora, resultado y duración). La duración real se mide con el tiempo que el móvil pasa fuera de la app tras pulsar Llamar, y se marcan para revisar los resultados guardados sin llamar y las llamadas de pocos segundos. La app no puede leer el historial de llamadas del teléfono.
+- **Contrataciones** (solo dirección): backoffice sobre la base «Seguimiento O2» de Notion. Al marcar «Firmado», el comercial sube el contrato en PDF y la app lo lee (`src/lib/contract.ts`) para rellenar la contratación: productos, origen, código de carga, cliente y fecha. Dirección ve el dinero generado por código y por comercial, las extracomisiones por lotes (mes) y trimestral, y edita cada venta (productos, estado, baja, cobrado, comisión) con el contrato a la vista. El catálogo y las comisiones están en `src/lib/catalog.ts`, que solo usa el servidor: al comercial nunca se le envía ningún importe ni el nombre real de los códigos.
 - **Portal del empleado**:
   - *Fichaje*: entrada, descansos y salida con contador en marcha. La hora la pone el servidor. Cada trabajador ve y descarga su registro mensual (CSV); dirección ve el de todos. Solo dirección corrige un registro, con motivo obligatorio, y queda anotado quién, cuándo y el valor anterior. Cada registro lleva una firma: si alguien lo cambia directamente en Notion, la app lo marca como «Alterado».
   - *Vacaciones*: calendario para pedir vacaciones u otras ausencias; dirección aprueba o rechaza. Las ausencias aprobadas se ven en el calendario de todos.
@@ -58,6 +59,10 @@ El fichaje está pensado para el registro diario de jornada que exige el artícu
 - Quien tenga acceso de edición a esa base en Notion puede cambiar filas a mano. La app lo detecta y lo marca, pero no lo impide: limita ese acceso a dirección.
 - La app no calcula horas extraordinarias ni controla los límites de jornada; da el total trabajado por día y por mes.
 - Esto no es asesoramiento legal: conviene que vuestra gestoría confirme que encaja con vuestro convenio.
+
+### Contrataciones
+
+La base «Seguimiento O2» tiene que estar compartida con la integración. La app la localiza por su título (o por `NOTION_SEGUIMIENTO_DB_ID`) y la primera vez le añade las columnas Productos, Origen, Primera residencia, Comercial, LeadId, Baja y Contrato. Si cambian los productos o las comisiones de O2, se actualizan en `src/lib/catalog.ts`.
 
 ### WhatsApp compartido (opcional)
 

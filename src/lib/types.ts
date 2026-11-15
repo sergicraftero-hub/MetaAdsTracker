@@ -85,6 +85,69 @@ export interface Comment {
   files: { name: string; url: string }[];
 }
 
+export type SaleOrigin = "Movistar" | "No Movistar";
+
+/** Producto del catálogo de O2. La comisión solo se envía a dirección. */
+export interface Product {
+  id: string;
+  family: string;
+  name: string;
+  price: number;
+  /** Cuenta como alta de fibra para las extracomisiones (convergente o solo fibra, no la fibra adicional) */
+  baf: boolean;
+  commission?: number;
+}
+
+/** Contratación: una fila de «Seguimiento O2». */
+export interface Sale {
+  id: string;
+  name: string;
+  dni: string;
+  phone: string;
+  /** Día de la firma, YYYY-MM-DD */
+  date: string;
+  installFiber: string;
+  installPort: string;
+  /** Estado del seguimiento en Notion (Pdt cita, Pdt instalación, Listo…) */
+  state: string;
+  /** Código para el comercial: «Código 1», «Código 2»… */
+  code: string;
+  /** Nombre real del código de carga. Solo para dirección */
+  realCode?: string;
+  products: string[];
+  origin: SaleOrigin;
+  /** La fibra es de primera residencia (solo esas cuentan para las extracomisiones) */
+  primary: boolean;
+  comercial: string;
+  leadId: string;
+  baja: boolean;
+  comments: string;
+  /** Nombre del contrato adjunto, si lo hay */
+  contract: string;
+  /** Solo para dirección */
+  paid?: boolean;
+  commission?: number;
+  baf?: boolean;
+}
+
+/** Lo que la app lee de un contrato de O2 en PDF. */
+export interface ContractData {
+  pdv: string;
+  date: string;
+  name: string;
+  dni: string;
+  phone: string;
+  email: string;
+  address: string;
+  productText: string;
+  price: number;
+  origin: SaleOrigin;
+  /** Productos del catálogo reconocidos */
+  products: string[];
+  /** Código (alias) que corresponde al punto de venta del contrato, si se reconoce */
+  code: string;
+}
+
 /** Mensaje de WhatsApp preparado por cada usuario. Admite {nombre} (del cliente) y {yo} (de quien escribe). */
 export interface Template {
   title: string;

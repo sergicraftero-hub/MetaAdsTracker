@@ -52,7 +52,7 @@ const GUIDES: Guide[] = [
       { icon: "check", title: "Marca el resultado", text: "Ilocalizable si no lo coge, Rellamar, Interesado, Firmado… Al pulsarlo se guarda y aparece el siguiente lead." },
       { icon: "alarm", title: "Si hay que volver a llamar", text: "Elige «Rellamar» y pon el día y la hora. Cuando llegue ese momento, la campana te avisa y el lead te vuelve a salir." },
       { icon: "calendar", title: "Mira tu agenda", text: "En Agenda ves tus rellamadas en un calendario («Personal» son las tuyas, «Global» las de todos): las atrasadas en rojo y las que vienen en azul. Toca un día para ver a quién toca llamar. Si necesitas mover una, abre el lead y cambia la fecha." },
-      { icon: "trophy", title: "Si firma", text: "Pulsa «Firmado» y sube el contrato (PDF o foto). Cuenta para tu bono, que ves arriba de la pantalla." },
+      { icon: "trophy", title: "Si firma", text: "Pulsa «Firmado» y sube el contrato en PDF: la app lo lee y rellena sola lo que ha contratado. Revisa los productos, marca si la fibra es para su vivienda habitual y guarda. Arriba de la ficha te decimos en qué código cargar la venta." },
     ],
   },
   {
@@ -172,6 +172,22 @@ const MANUAL: { title: string; items: [string, string][] }[] = [
       ["Asignar varios leads", "En Leads → «Asignar varios», marcas los leads (o todos los de la lista filtrada) y eliges el comercial."],
       ["Abrir en Notion", "El botón «Abrir en Notion» de la ficha solo lo ve dirección. A los comerciales no se les envía el enlace a Notion."],
       ["Qué ve cada uno", "Dirección ve todo. Un comercial ve sus leads, los que no tienen comercial, las rellamadas pendientes de todo el equipo y lo sin contactar de compañeros que hoy no han fichado."],
+    ],
+  },
+  {
+    title: "Contrataciones y dinero",
+    items: [
+      ["Dónde están", "En vuestra base «Seguimiento O2» de Notion. La pestaña Contrataciones la lee y la escribe; la primera vez añade las columnas que le faltan (Productos, Origen, Primera residencia, Comercial, LeadId, Baja y Contrato)."],
+      ["Qué hace el comercial", "Al marcar «Firmado» sube el contrato en PDF. La app lee el punto de venta, la fecha, el producto y la cuota, las líneas adicionales, el nombre, el DNI, el teléfono y si viene de Movistar (operador donante o portabilidad interna). El comercial revisa los productos, marca si es primera residencia y guarda. No ve ningún importe."],
+      ["Comisión de cada venta", "Suma de las comisiones de sus productos según la tabla de O2. Se guarda en la columna Comisión y dirección puede corregirla a mano."],
+      ["Códigos", "Son las opciones de la columna «Codigo de carga». El comercial solo ve «Código 1», «Código 2»… por orden; el nombre real (LT00…) solo lo ve dirección. Se añaden desde Contrataciones → «Añadir código»."],
+      ["En qué código cargar", "La app recomienda el código donde la venta rinde más: mira cuántas fibras lleva cada uno este mes y cuánto falta para su siguiente tramo, y si la venta no viene de Movistar suma también el trimestral. El comercial lo ve en la pantalla de la llamada antes de contratar. Si el contrato ya dice en qué punto de venta se cargó, manda el contrato."],
+      ["Extra por lotes", "Por código y mes natural, según altas de fibra: 4–10 → 450 €, 11–14 → 1.100 €, 15–20 → 1.500 €, 21–30 → 2.000 €, 31–40 → 2.300 €, 41 o más → 2.600 €. Cuentan también las de origen Movistar."],
+      ["Extra trimestral", "Por código y trimestre natural, solo fibras que no vienen de Movistar: 15–29 → 750 €, 30 o más → 1.800 €."],
+      ["Qué cuenta como fibra", "Convergentes y fibra sola, de primera residencia y que no estén de baja. No cuentan la fibra adicional, las líneas móviles ni M+."],
+      ["Bajas", "En Editar, la casilla «Baja» hace que la venta deje de cobrar comisión y de contar para las extras."],
+      ["Ventas antiguas", "Las que ya estaban en «Seguimiento O2» conservan su comisión. Como no dicen productos, origen ni residencia, se cuentan como fibra de primera residencia y origen Movistar hasta que las edites. Las filas «BONO…» apuntadas a mano no se suman, porque la app ya calcula los lotes."],
+      ["Contrato", "Se guarda en la columna Contrato de «Seguimiento O2» y en los comentarios del lead. En Contrataciones se previsualiza con el botón «Contrato»."],
     ],
   },
   {
