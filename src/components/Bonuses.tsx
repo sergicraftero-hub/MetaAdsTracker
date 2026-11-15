@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import type { Bonus, LeadsPayload } from "@/lib/types";
+import { useDialogs } from "./Dialogs";
+import Icon from "./Icon";
 import { api } from "./util";
 
 const METRIC = { firmados: "firmados", llamadas: "llamadas", contactos: "contactos" } as const;
@@ -29,19 +31,24 @@ function Meter({ b }: { b: Bonus }) {
   const done = value >= b.goal;
   return (
     <div className={done ? "bonus done" : "bonus"}>
-      <div className="bonus-head">
-        <strong>
-          {done ? "🏆" : "🎯"} {b.title}
-        </strong>
-        <span className="pill">{b.para ? "Tuyo" : "Equipo"}</span>
+      <span className="bonus-ico"><Icon name={done ? "trophy" : "target"} size={20} /></span>
+      <div className="bonus-main">
+        <div className="bonus-head">
+          <strong>{b.title}</strong>
+          <span className="bonus-num">
+            {value}
+            <small>/{b.goal}</small>
+          </span>
+        </div>
+        <div className="meter" role="meter" aria-valuemin={0} aria-valuemax={b.goal} aria-valuenow={Math.min(value, b.goal)} aria-label={b.title}>
+          <span style={{ width: `${Math.min(100, (value / b.goal) * 100)}%` }} />
+        </div>
+        <span className="muted hint">
+          {done ? "Conseguido · " : ""}
+          {b.prize ? `${b.prize} · ` : ""}
+          {METRIC[b.metric]} {PERIOD[b.period]} · {b.para ? "tuyo" : "equipo"}
+        </span>
       </div>
-      {b.prize && <span className="bonus-prize">Premio: {b.prize}</span>}
-      <div className="meter" role="meter" aria-valuemin={0} aria-valuemax={b.goal} aria-valuenow={Math.min(value, b.goal)} aria-label={b.title}>
-        <span style={{ width: `${Math.min(100, (value / b.goal) * 100)}%` }} />
-      </div>
-      <span className="muted hint">
-        {done ? `¡Conseguido! ${value} de ${b.goal}` : `${value} de ${b.goal}`} {METRIC[b.metric]} {PERIOD[b.period]}
-      </span>
     </div>
   );
 }
@@ -54,7 +61,7 @@ export function BonusCards({ data, refreshKey }: { data: LeadsPayload; refreshKe
   if (!mine.length) {
     return (
       <div className="bonus empty-bonus">
-        <span className="mascot" aria-hidden>🐣</span>
+        <span className="bonus-ico"><Icon name="sparkle" size={20} /></span>
         <span>
           <strong>Todavía no hay bono en juego</strong>
           <span className="muted hint">Dirección está pensando en algo rico. Mientras tanto, ¡a por la siguiente llamada!</span>
@@ -75,6 +82,7 @@ const EMPTY = { title: "", prize: "", metric: "firmados", goal: "5", period: "se
 /** Gestión de bonos para dirección: crear, editar, pausar y borrar. */
 export function BonusAdmin({ data, people, toast }: { data: LeadsPayload; people: string[]; toast: (m: string, e?: boolean) => void }) {
   const { state, load } = useBonuses(0);
+  const dlg = useDialogs();
   const [form, setForm] = useState(EMPTY);
   const [editing, setEditing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -141,7 +149,7 @@ export function BonusAdmin({ data, people, toast }: { data: LeadsPayload; people
                   <button className="btn small" disabled={busy} onClick={() => run(() => api(`/api/bonos/${b.id}`, "PATCH", { active: !b.active }), b.active ? "Bono pausado" : "Bono activado")}>
                     {b.active ? "Pausar" : "Activar"}
                   </button>
-                  <button className="btn small" disabled={busy} onClick={() => window.confirm(`¿Borrar el bono «${b.title}»?`) && run(() => api(`/api/bonos/${b.id}`, "DELETE"), "Bono borrado")}>
+                  <button className="btn small" disabled={busy} onClick={async () => (await dlg.confirm({ title: `¿Borrar el bono «${b.title}»?`, text: "Dejará de verse y no se puede recuperar.", ok: "Borrar", danger: true })) && run(() => api(`/api/bonos/${b.id}`, "DELETE"), "Bono borrado")}>
                     Borrar
                   </button>
                 </div>

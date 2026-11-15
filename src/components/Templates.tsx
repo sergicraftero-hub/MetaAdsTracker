@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Template } from "@/lib/types";
+import Icon from "./Icon";
 import { api } from "./util";
 
 type Toast = (m: string, e?: boolean) => void;
@@ -65,7 +66,7 @@ export default function Templates({ nombre, yo, onPick, toast }: { nombre: strin
           </button>
         ))}
         <button type="button" className="tag ghost" onClick={() => { setDraft(list.map((t) => ({ ...t }))); setEditing(true); }}>
-          ✎ Mis mensajes
+          <Icon name="pencil" size={14} /> Mis mensajes
         </button>
       </div>
       {editing && (

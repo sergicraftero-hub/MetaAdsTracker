@@ -5,6 +5,7 @@ import type { FieldKey, Lead, LeadsPayload } from "@/lib/types";
 import type { Actions } from "./App";
 import CallButton from "./CallButton";
 import Comments from "./Comments";
+import Icon from "./Icon";
 import { dayKey, fmtAgo, fmtWhen, parseWhen, pretty, str, telHref, timeKey, waHref } from "./util";
 import { Chip } from "./views";
 
@@ -64,7 +65,7 @@ export default function LeadDetail({ lead, data, actions, onClose }: Props) {
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <aside className="sheet" role="dialog" aria-modal="true" aria-label={`Ficha de ${str(f.nombre)}`}>
         <header className="sheet-head">
-          <button className="btn small" onClick={onClose}>← Volver</button>
+          <button className="btn small" onClick={onClose}><Icon name="left" size={16} /> Volver</button>
           {lead.url && (
             <a className="btn small" href={lead.url} target="_blank" rel="noreferrer">Abrir en Notion</a>
           )}

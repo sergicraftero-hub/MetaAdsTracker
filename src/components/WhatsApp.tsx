@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Lead, LeadsPayload, WaChat, WaMessage } from "@/lib/types";
+import Icon from "./Icon";
 import Templates from "./Templates";
 import { digits, str } from "./util";
 
@@ -20,7 +21,7 @@ function shortDate(iso: string) {
   return d.toDateString() === today.toDateString() ? hour(iso) : d.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
 }
 const dayTitle = (iso: string) => new Date(iso).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
-const TICKS: Record<string, string> = { pending: "🕓", sent: "✓", delivered: "✓✓", read: "✓✓ leído", played: "✓✓ leído", failed: "no enviado" };
+const TICKS: Record<string, string> = { pending: "enviando", sent: "enviado", delivered: "entregado", read: "leído", played: "leído", failed: "no enviado" };
 
 async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url).catch(() => null);
@@ -114,7 +115,7 @@ export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast, own
   return (
     <div className="chat">
       <header className="chat-head">
-        {onBack && <button className="btn small" onClick={onBack}>←</button>}
+        {onBack && <button className="btn small" onClick={onBack} aria-label="Volver"><Icon name="left" size={16} /></button>}
         <div className="chat-title">
           <strong>{title}</strong>
           {subtitle && <span className="muted hint">{subtitle}</span>}
@@ -150,7 +151,7 @@ export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast, own
                     <audio controls preload="none" src={`/api/whatsapp/media/${m.file.id}`} />
                   ) : (
                     <a className="file" href={`/api/whatsapp/media/${m.file.id}`} download={m.file.name}>
-                      📎 {m.file.name}
+                      <Icon name="clip" size={15} /> {m.file.name}
                     </a>
                   ))}
                 {m.text && <span className="note-text">{m.text}</span>}
@@ -168,14 +169,14 @@ export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast, own
       <form className="chat-form" onSubmit={send}>
         {file && (
           <span className="pill attach-pill">
-            📎 {file.name}
+            <Icon name="clip" size={14} /> {file.name}
             <button type="button" aria-label="Quitar archivo" onClick={() => { setFile(null); setFileKey((k) => k + 1); }}>×</button>
           </span>
         )}
         <Templates nombre={title} yo={me} toast={toast} onPick={(t) => setText((cur) => (cur.trim() ? `${cur.trim()}\n${t}` : t))} />
         <div className="chat-row">
           <label className="icon-btn clip" title="Adjuntar archivo (hasta 4 MB)">
-            📎
+            <Icon name="clip" size={18} />
             <input key={fileKey} type="file" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </label>
           <textarea
@@ -323,7 +324,7 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
                   <strong>{nameOf(c)}</strong>
                   {byPhone.has(c.phone) && <span className="chip c-blue">Lead</span>}
                   {ownerOf(c) && <span className="chip c-green">{ownerOf(c)}</span>}
-                  {c.unread !== 0 && <span className="unread" aria-label="Sin leer">{c.unread > 0 ? c.unread : "●"}</span>}
+                  {c.unread !== 0 && <span className="unread" aria-label="Sin leer">{c.unread > 0 ? c.unread : ""}</span>}
                 </span>
                 <span className="row-sub muted">{c.lastFromMe ? "Tú: " : ""}{c.last || "—"}</span>
               </button>

@@ -134,7 +134,7 @@ export async function runPushChecks(): Promise<{ sent: number; checked: string }
     if (!v.includes("T") || isClosed(l.f.estado) || !crossed(new Date(v).getTime())) continue;
     const owner = String(l.f.comercial ?? "").trim().toLowerCase();
     const to = active.filter((u) => u.code && u.code.trim().toLowerCase() === owner).map((u) => u.email);
-    sent += await sendPush(to, { title: "📞 Rellamada ahora", body: `Te toca llamar a ${String(l.f.nombre ?? "un lead")} (${madridTime(v)}).`, tag: `rellamada-${l.id}` });
+    sent += await sendPush(to, { title: "Rellamada ahora", body: `Te toca llamar a ${String(l.f.nombre ?? "un lead")} (${madridTime(v)}).`, tag: `rellamada-${l.id}` });
   }
 
   // 2 y 3. Jornadas
@@ -146,12 +146,12 @@ export async function runPushChecks(): Promise<{ sent: number; checked: string }
       const onBreak = s.breaks.some((b) => !b.e);
       const warnAt = start + breakMs(s, now) + hours * 3600_000 - SHIFT_WARN;
       if (!onBreak && crossed(warnAt)) {
-        sent += await sendPush([s.user], { title: "⏳ Tu jornada termina en 5 minutos", body: "Ve cerrando lo que tengas abierto y ficha la salida.", tag: "fin-jornada" });
+        sent += await sendPush([s.user], { title: "Tu jornada termina en 5 minutos", body: "Ve cerrando lo que tengas abierto y ficha la salida.", tag: "fin-jornada" });
       }
     }
     if (crossed(start + LONG_SHIFT)) {
-      sent += await sendPush([s.user], { title: "⏰ ¿Olvidaste fichar la salida?", body: "Tu jornada lleva más de 10 horas abierta.", tag: "jornada-abierta" });
-      sent += await sendPush(admins.filter((a) => a !== s.user), { title: "⏰ Jornada sin cerrar", body: `${s.name} lleva más de 10 horas con la jornada abierta.`, tag: `jornada-abierta-${s.id}` });
+      sent += await sendPush([s.user], { title: "¿Olvidaste fichar la salida?", body: "Tu jornada lleva más de 10 horas abierta.", tag: "jornada-abierta" });
+      sent += await sendPush(admins.filter((a) => a !== s.user), { title: "Jornada sin cerrar", body: `${s.name} lleva más de 10 horas con la jornada abierta.`, tag: `jornada-abierta-${s.id}` });
     }
   }
   return { sent, checked: new Date(now).toISOString() };

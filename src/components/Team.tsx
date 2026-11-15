@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { LeadsPayload, User } from "@/lib/types";
 import { BonusAdmin } from "./Bonuses";
+import { useDialogs } from "./Dialogs";
 import { api } from "./util";
 
 interface Status {
@@ -16,6 +17,7 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
   const [form, setForm] = useState({ name: "", email: "", role: "comercial", code: "", password: "", hours: "8" });
   const [busy, setBusy] = useState(false);
   const [cron, setCron] = useState("");
+  const dlg = useDialogs();
 
   const load = useCallback(async () => {
     try {
@@ -98,15 +100,18 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
                       <td className="cell-actions">
                         <button
                           className="btn small"
-                          onClick={() => {
-                            const name = window.prompt("Nombre", u.name);
-                            if (name === null) return;
-                            const code = window.prompt("Código en la columna COMERCIAL (vacío si no llama)", u.code);
-                            if (code === null) return;
-                            const admin = window.confirm(`¿${name || u.name} es de dirección (ve todo)?\n\nAceptar = Dirección · Cancelar = Comercial`);
-                            const hours = window.prompt("Horas de jornada al día (0 = sin límite)", String(u.hours ?? 0));
-                            if (hours === null) return;
-                            patch(u.id, { name, code, hours, role: admin ? "admin" : "comercial" }, "Usuario actualizado");
+                          onClick={async () => {
+                            const v = await dlg.form({
+                              title: `Editar a ${u.name}`,
+                              ok: "Guardar",
+                              fields: [
+                                { key: "name", label: "Nombre", value: u.name, required: true },
+                                { key: "role", label: "Rol", type: "select", value: u.role, options: [{ value: "comercial", label: "Comercial (ve solo lo suyo)" }, { value: "admin", label: "Dirección (ve todo)" }] },
+                                { key: "code", label: "Código en la columna COMERCIAL", value: u.code, hint: "Tiene que ser idéntico a su opción en Notion. Vacío si no llama." },
+                                { key: "hours", label: "Horas de jornada al día", type: "number", value: String(u.hours ?? 0), min: 0, max: 16, step: 0.5, hint: "0 = sin límite" },
+                              ],
+                            });
+                            if (v) patch(u.id, { name: v.name, code: v.code, hours: v.hours, role: v.role }, "Usuario actualizado");
                           }}
                         >
                           Editar
@@ -116,9 +121,13 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
                         </button>
                         <button
                           className="btn small"
-                          onClick={() => {
-                            const password = window.prompt(`Nueva contraseña para ${u.name} (mínimo 8 caracteres)`);
-                            if (password) patch(u.id, { password }, "Contraseña cambiada");
+                          onClick={async () => {
+                            const v = await dlg.form({
+                              title: `Nueva contraseña para ${u.name}`,
+                              ok: "Cambiar contraseña",
+                              fields: [{ key: "password", label: "Contraseña nueva", type: "password", minLength: 8, required: true, hint: "Mínimo 8 caracteres. Pásasela tú a la persona." }],
+                            });
+                            if (v) patch(u.id, { password: v.password }, "Contraseña cambiada");
                           }}
                         >
                           Contraseña

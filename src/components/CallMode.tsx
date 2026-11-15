@@ -4,6 +4,7 @@ import { stageOf } from "@/lib/fields";
 import type { Lead, LeadsPayload } from "@/lib/types";
 import { BonusCards } from "./Bonuses";
 import CallButton, { useAwayTimer } from "./CallButton";
+import Icon from "./Icon";
 import Comments, { postComment } from "./Comments";
 import { SOURCE_LABEL, buildPools, nextPick, type Source } from "./queue";
 import { SHIFT_WARN_MS, api, dayKey, fmtAgo, fmtWhen, pretty, shiftRemaining, str, telHref, timeKey, waHref } from "./util";
@@ -191,7 +192,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
     return (
       <div className="call-wrap">
         <section className="card call-start">
-          <span className="mascot" aria-hidden>🌇</span>
+          <span className="big-ico"><Icon name="sunset" size={30} /></span>
           <h2 className="lead-name">{remaining > 0 ? "Tu jornada termina enseguida" : "Has cumplido tu jornada"}</h2>
           <p className="muted">
             {remaining > 0
@@ -256,6 +257,12 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
     ["Código postal", str(f.cp)],
     ["Entró", fmtAgo(f.fecha)],
   ];
+  const initials = str(f.nombre)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
 
   return (
     <div className="call-wrap">
@@ -268,11 +275,14 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
         <button className="btn small" onClick={() => setActive(false)}>Pausar</button>
       </div>
 
-      <section className="card call-card">
-        <div>
-          <h2 className="lead-name">{str(f.nombre) || "Sin nombre"}</h2>
-          <p className="muted">{str(f.telefono)}{f.email ? ` · ${str(f.email)}` : ""}</p>
-        </div>
+      <section className="card call-card swap" key={cur.id}>
+        <header className="call-head">
+          <span className="avatar" aria-hidden>{initials || "?"}</span>
+          <div className="call-id">
+            <h2 className="lead-name">{str(f.nombre) || "Sin nombre"}</h2>
+            <p className="muted">{str(f.telefono)}{f.email ? ` · ${str(f.email)}` : ""}</p>
+          </div>
+        </header>
 
         <div className="contact">
           <CallButton lead={lead} className="btn primary big" toast={toast} onCall={() => {
@@ -285,16 +295,16 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
                   .catch(() => {});
               }
             }}>
-            Llamar
+            <Icon name="phone" size={20} /> Llamar
           </CallButton>
           {data.waReady ? (
-            <button className="btn big" onClick={() => onChat(lead)}>WhatsApp</button>
+            <button className="btn big" onClick={() => onChat(lead)}><Icon name="chat" size={20} /> WhatsApp</button>
           ) : (
-            <a className="btn big" href={waHref(f.telefono)} target="_blank" rel="noreferrer">WhatsApp</a>
+            <a className="btn big" href={waHref(f.telefono)} target="_blank" rel="noreferrer"><Icon name="chat" size={20} /> WhatsApp</a>
           )}
         </div>
 
-        <dl className="info">
+        <dl className="facts">
           {answers.map(([k, v]) => (
             <div key={k}>
               <dt>{k}</dt>
@@ -311,8 +321,8 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
         </div>
 
         {pending ? (
-          <div className="step">
-            <h3>{pending}</h3>
+          <div className="step pop">
+            <h3>{labelOf(pending).title}</h3>
             {stageOf(pending) === "ganado" ? (
               <label>
                 Contrato firmado (opcional, PDF o foto de hasta 4 MB)
@@ -349,33 +359,62 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
           </div>
         ) : (
           <div className="results">
-            <h3>Resultado de la llamada</h3>
-            <div className="result-grid">
-              {open.map((o) => (
-                <button key={o.name} className={`btn result chip c-${o.color}`} disabled={busy} onClick={() => choose(o.name)}>
-                  {o.name.toUpperCase() === "ILOCALIZABLE" ? "NO CONTESTA" : o.name}
-                </button>
-              ))}
-              {won.map((o) => (
-                <button key={o.name} className="btn result primary" disabled={busy} onClick={() => choose(o.name)}>
-                  {o.name === "FIMADO" ? "FIRMADO" : o.name}
-                </button>
-              ))}
+            <h3>¿Cómo ha ido la llamada?</h3>
+            <div className="res-grid">
+              {open.map((o) => {
+                const l = labelOf(o.name);
+                return (
+                  <button key={o.name} className="res" disabled={busy} onClick={() => choose(o.name)}>
+                    <i className={`dot d-${o.color}`} />
+                    <span>
+                      <b>{l.title}</b>
+                      {l.hint && <small>{l.hint}</small>}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <details>
+            {won.map((o) => (
+              <button key={o.name} className="res won" disabled={busy} onClick={() => choose(o.name)}>
+                <Icon name="check" size={22} />
+                <span>
+                  <b>{labelOf(o.name).title}</b>
+                  <small>Ha contratado</small>
+                </span>
+              </button>
+            ))}
+            <details className="discard">
               <summary>Descartar el lead</summary>
-              <div className="result-grid">
+              <div className="res-grid">
                 {lost.map((o) => (
-                  <button key={o.name} className={`btn result chip c-${o.color}`} disabled={busy} onClick={() => choose(o.name)}>
-                    {o.name}
+                  <button key={o.name} className="res small" disabled={busy} onClick={() => choose(o.name)}>
+                    <i className="dot d-red" />
+                    <span><b>{labelOf(o.name).title}</b></span>
                   </button>
                 ))}
               </div>
             </details>
-            <button className="btn link" disabled={busy} onClick={() => finish(null)}>Saltar sin llamar</button>
+            <button className="btn link skip" disabled={busy} onClick={() => finish(null)}><Icon name="skip" size={15} /> Saltar sin llamar</button>
           </div>
         )}
       </section>
     </div>
   );
+}
+
+/** Nombre legible y pista de cada estado, para los botones de resultado. */
+const NICE: Record<string, { title: string; hint?: string }> = {
+  RELLAMAR: { title: "Rellamar", hint: "Pide que le llames luego" },
+  ILOCALIZABLE: { title: "Ilocalizable", hint: "No lo coge" },
+  "CONTACTADO E INTERESADO": { title: "Interesado", hint: "Quiere seguir adelante" },
+  "HABLANDO POR WHATSAPP": { title: "Por WhatsApp", hint: "Seguís por chat" },
+  "LO ESTÁ PENSANDO AÚN": { title: "Se lo piensa", hint: "Necesita tiempo" },
+  SCORING: { title: "Scoring", hint: "En comprobación" },
+  FIMADO: { title: "Firmado" },
+};
+function labelOf(estado: string): { title: string; hint?: string } {
+  const known = NICE[estado.toUpperCase()];
+  if (known) return known;
+  const t = estado.toLowerCase();
+  return { title: t.charAt(0).toUpperCase() + t.slice(1).replace(/\bo2\b/g, "O2") };
 }

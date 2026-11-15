@@ -40,11 +40,11 @@ function groupBy(leads: Lead[], key: (l: Lead) => string) {
   return m;
 }
 
-function Breakdown({ title, groups }: { title: string; groups: Map<string, Lead[]> }) {
+function Breakdown({ title, groups, folded }: { title: string; groups: Map<string, Lead[]>; folded?: boolean }) {
   const rows = [...groups.entries()].sort((a, b) => b[1].length - a[1].length);
-  return (
-    <section className="card">
-      <h2>{title}</h2>
+  const best = Math.max(0.0001, ...rows.map(([, ls]) => ls.filter(won).length / Math.max(1, ls.length)));
+  const body = (
+    <>
       <div className="table-wrap">
         <table>
           <thead>
@@ -69,7 +69,10 @@ function Breakdown({ title, groups }: { title: string; groups: Map<string, Lead[
                   <td>{c}</td>
                   <td>{pct(c, ls.length)}</td>
                   <td>{w}</td>
-                  <td>{pct(w, ls.length)}</td>
+                  <td>
+                    <span className="cellbar"><i style={{ width: `${(w / Math.max(1, ls.length) / best) * 100}%` }} /></span>
+                    {pct(w, ls.length)}
+                  </td>
                   <td>{pct(w, c)}</td>
                 </tr>
               );
@@ -77,9 +80,21 @@ function Breakdown({ title, groups }: { title: string; groups: Map<string, Lead[
           </tbody>
         </table>
       </div>
+    </>
+  );
+  return folded ? (
+    <details className="card fold">
+      <summary>{title}</summary>
+      {body}
+    </details>
+  ) : (
+    <section className="card">
+      <h2>{title}</h2>
+      {body}
     </section>
   );
 }
+
 
 interface Bucket {
   key: string;
@@ -251,11 +266,10 @@ function ManagerDashboard({ data, onOpenLead }: { data: LeadsPayload; onOpenLead
       )}
       <p className="muted hint">Las tasas cuentan los leads por su fecha de entrada: de los que entraron en el periodo, cuántos se han contactado y firmado hasta hoy.</p>
 
-      <div className="tiles">
+      <div className="tiles kpis">
         <Tile hero label="Conversión a firmado" value={pct(nWon, leads.length)} sub={`${nWon} firmados de ${leads.length} leads`} />
         <Tile label="Tasa de contacto" value={pct(nContacted, leads.length)} sub={`${nContacted} contactados`} />
         <Tile label="Cierre sobre contactados" value={pct(nWon, nContacted)} sub="firmados entre contactados" />
-        <Tile label="Leads" value={leads.length} sub="entrados en el periodo" />
         <Tile label="En curso" value={nOpen} sub={`${overdue} con rellamada atrasada o de hoy`} />
         <Tile label="Descartados" value={nLost} sub={`${pct(nLost, leads.length)} de los leads`} />
       </div>
@@ -322,9 +336,10 @@ function ManagerDashboard({ data, onOpenLead }: { data: LeadsPayload; onOpenLead
         )}
       </section>
 
-      <Breakdown title="Conversión por compañía actual" groups={groupBy(leads, (l) => pretty(l.f.compania) || "—")} />
-      <Breakdown title="Conversión por lo que paga al mes" groups={groupBy(leads, (l) => pretty(l.f.cuantoPaga) || "—")} />
+      <Breakdown folded title="Conversión por compañía actual" groups={groupBy(leads, (l) => pretty(l.f.compania) || "—")} />
+      <Breakdown folded title="Conversión por lo que paga al mes" groups={groupBy(leads, (l) => pretty(l.f.cuantoPaga) || "—")} />
 
+      <h2 className="section-title">Actividad del equipo</h2>
       <Activity data={data} onOpenLead={onOpenLead} />
     </div>
   );

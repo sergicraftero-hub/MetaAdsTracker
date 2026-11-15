@@ -9,3 +9,4 @@ CRM de seguimiento comercial (Next.js, PWA) sobre Notion. Ver `README.md` para q
 - Los datos viven en Notion: los leads en «LEADS O2» y lo propio de la app en bases que crea sola dentro de la página «BUT Calls». No añadir otra base de datos sin hablarlo.
 - No escribir en el Notion ni en el WhatsApp reales del cliente para probar sin su permiso; el modo demostración (sin `NOTION_TOKEN`) cubre las pruebas.
 - Al comercial, lo mínimo: nada de contadores de leads pendientes ni estadísticas de más. El detalle es para dirección.
+- **Estilo visual.** Sin emojis: usar los iconos de `src/components/Icon.tsx`. Sin `window.confirm` ni `window.prompt`: usar `useDialogs()` de `src/components/Dialogs.tsx`. Mantener el azul marino, el crema y la tipografía del logo.

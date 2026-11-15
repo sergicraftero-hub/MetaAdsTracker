@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Fields, Lead, LeadsPayload } from "@/lib/types";
 import CallMode from "./CallMode";
 import Dashboard from "./Dashboard";
+import { DialogProvider } from "./Dialogs";
 import Help from "./Help";
+import Icon from "./Icon";
 import LeadDetail from "./LeadDetail";
 import NewLead from "./NewLead";
 import Team from "./Team";
@@ -14,6 +16,8 @@ import Portal, { Bell } from "./Portal";
 import WhatsApp, { ChatView } from "./WhatsApp";
 
 type Tab = "llamar" | "hoy" | "leads" | "whatsapp" | "embudo" | "panel" | "portal" | "equipo" | "ayuda";
+/** Pestañas fijas en la barra del móvil; el resto va dentro de «Más» */
+const PRIMARY: Tab[] = ["llamar", "hoy", "whatsapp", "portal"];
 const CACHE_KEY = "but-calls-v1";
 
 const ICONS: Record<Tab, string> = {
@@ -40,6 +44,14 @@ export interface Actions {
 }
 
 export default function App() {
+  return (
+    <DialogProvider>
+      <Shell />
+    </DialogProvider>
+  );
+}
+
+function Shell() {
   const [data, setData] = useState<LeadsPayload | null>(null);
   const [error, setError] = useState("");
   const [stale, setStale] = useState(false);
@@ -47,6 +59,7 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [chatLead, setChatLead] = useState<string | null>(null);
+  const [more, setMore] = useState(false);
   const [toastMsg, setToastMsg] = useState<{ msg: string; error: boolean } | null>(null);
   const pending = useRef(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -176,13 +189,17 @@ export default function App() {
           <img src="/logo.svg" alt="BUT Calls" />
         </div>
         {tabs.map((t) => (
-          <button key={t} className={tab === t ? "tab active" : "tab"} onClick={() => setTab(t)} aria-current={tab === t}>
+          <button key={t} className={`tab${tab === t ? " active" : ""}${PRIMARY.includes(t) ? "" : " sec"}`} onClick={() => setTab(t)} aria-current={tab === t}>
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d={ICONS[t]} />
             </svg>
             <span>{TITLES[t]}</span>
           </button>
         ))}
+        <button className={`tab more-tab${PRIMARY.includes(tab) ? "" : " active"}`} onClick={() => setMore(true)} aria-haspopup="dialog">
+          <Icon name="more" size={22} />
+          <span>Más</span>
+        </button>
         <div className="nav-foot">
           <div className="who">
             <strong>{data.me.name}</strong>
@@ -214,17 +231,9 @@ export default function App() {
             <button className="btn small only-desktop" onClick={load} title="Actualizar">Actualizar</button>
             <button className="btn primary small" onClick={() => setCreating(true)}>+ Lead</button>
             <Bell data={data} toast={toast} onGoPortal={() => setTab("portal")} onGoWhatsApp={() => setTab("whatsapp")} onOpenLead={open} />
-            <button
-              className="btn small only-mobile"
-              onClick={async () => {
-                await fetch("/api/logout", { method: "POST" }).catch(() => {});
-                window.location.href = "/login";
-              }}
-            >
-              Salir
-            </button>
           </div>
         </header>
+        <div className="view" key={tab}>
         {tab === "llamar" && <CallMode data={data} replaceLead={replaceLead} toast={toast} onChat={actions.chat} reload={load} />}
         {tab === "hoy" && <Agenda data={data} actions={actions} />}
         {tab === "leads" && <LeadList data={data} actions={actions} />}
@@ -234,6 +243,7 @@ export default function App() {
         {tab === "portal" && <Portal data={data} toast={toast} />}
         {tab === "ayuda" && <Help data={data} goTo={setTab} />}
         {tab === "equipo" && admin && <Team data={data} toast={toast} />}
+        </div>
       </main>
 
       {lead && <LeadDetail key={lead.id} lead={lead} data={data} actions={actions} onClose={close} />}
@@ -260,6 +270,35 @@ export default function App() {
           </div>
         );
       })()}
+      {more && (
+        <div className="overlay sheet-up" onClick={() => setMore(false)}>
+          <div className="more-sheet" role="dialog" aria-modal="true" aria-label="Más secciones">
+            {tabs.filter((t) => !PRIMARY.includes(t)).map((t) => (
+              <button key={t} className={tab === t ? "more-item active" : "more-item"} onClick={() => setTab(t)}>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d={ICONS[t]} />
+                </svg>
+                {TITLES[t]}
+              </button>
+            ))}
+            <div className="more-foot">
+              <span className="muted hint">{data.me.name} · {admin ? "Dirección" : "Comercial"}</span>
+              <button
+                className="btn small"
+                onClick={async () => {
+                  await fetch("/api/logout", { method: "POST" }).catch(() => {});
+                  try {
+                    localStorage.removeItem(CACHE_KEY);
+                  } catch {}
+                  window.location.href = "/login";
+                }}
+              >
+                Salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <PhoneAlerts />
       {toastMsg && (
         <div className={toastMsg.error ? "toast bad" : "toast"} role="status">

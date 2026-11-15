@@ -25,6 +25,13 @@ CRM de seguimiento comercial de leads. Es una app web instalable (PWA): el mismo
 
 Los estados y comerciales se leen de las opciones de las columnas de Notion, así que añadir uno en Notion lo añade en la app.
 
+## Interfaz
+
+- Iconos de línea propios (`src/components/Icon.tsx`); la app no usa emojis.
+- Confirmaciones y formularios cortos con diálogos propios (`src/components/Dialogs.tsx`), nunca con las ventanas del navegador.
+- En móvil la barra inferior tiene cuatro pestañas fijas (Llamar, Agenda, WhatsApp, Portal) y el resto está en «Más».
+- Las animaciones se desactivan solas si el dispositivo tiene activada la opción de reducir movimiento.
+
 ## Puesta en marcha (Vercel)
 
 1. En [vercel.com](https://vercel.com) → *Add New → Project* → importa este repositorio. No hay que cambiar ningún ajuste de compilación.

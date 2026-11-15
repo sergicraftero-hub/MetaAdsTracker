@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isClosed } from "@/lib/fields";
 import type { Leave, LeadsPayload, Payslip, Person, Shift } from "@/lib/types";
+import { useDialogs } from "./Dialogs";
+import Icon from "./Icon";
 import PushSetup from "./PushSetup";
 import { SHIFT_WARN_MS, api, dayKey, shiftRemaining } from "./util";
 
@@ -35,6 +37,7 @@ export const portalChanged = () => window.dispatchEvent(new Event("portal-change
 /* ============================== Fichaje ============================== */
 
 function Clock({ data, toast }: Props) {
+  const dlg = useDialogs();
   const admin = data.me.role === "admin";
   const [month, setMonth] = useState(dayKey(new Date()).slice(0, 7));
   const [who, setWho] = useState(data.me.email);
@@ -113,7 +116,7 @@ function Clock({ data, toast }: Props) {
           {!open && <button className="btn primary big" disabled={busy} onClick={() => punch("entrar", "Entrada registrada")}>Entrar</button>}
           {open && !onBreak && <button className="btn big" disabled={busy} onClick={() => punch("pausa", "Descanso iniciado")}>Empezar descanso</button>}
           {open && onBreak && <button className="btn primary big" disabled={busy} onClick={() => punch("reanudar", "Descanso terminado")}>Volver del descanso</button>}
-          {open && <button className="btn big danger" disabled={busy} onClick={() => window.confirm("¿Terminar la jornada y registrar la salida?") && punch("salir", "Salida registrada")}>Salir</button>}
+          {open && <button className="btn big danger" disabled={busy} onClick={async () => (await dlg.confirm({ title: "¿Terminar la jornada?", text: "Se registrará tu hora de salida.", ok: "Fichar salida" })) && punch("salir", "Salida registrada")}>Salir</button>}
         </div>
       </section>
 
@@ -121,9 +124,9 @@ function Clock({ data, toast }: Props) {
         <div className="between">
           <h2>Registro de jornada</h2>
           <div className="month-nav">
-            <button className="btn small" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Mes anterior">←</button>
+            <button className="btn small" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Mes anterior"><Icon name="left" size={16} /></button>
             <strong className="cap">{monthName(month)}</strong>
-            <button className="btn small" onClick={() => setMonth(shiftMonth(month, 1))} aria-label="Mes siguiente">→</button>
+            <button className="btn small" onClick={() => setMonth(shiftMonth(month, 1))} aria-label="Mes siguiente"><Icon name="right" size={16} /></button>
           </div>
         </div>
         <div className="filters">
@@ -238,6 +241,7 @@ export async function resolveLeave(id: string, status: "aprobada" | "rechazada",
 }
 
 function Leaves({ data, toast }: Props) {
+  const dlg = useDialogs();
   const admin = data.me.role === "admin";
   const [state, setState] = useState<{ ready: boolean; requests: Leave[]; types: string[] } | null>(null);
   const [month, setMonth] = useState(dayKey(new Date()).slice(0, 7));
@@ -338,9 +342,9 @@ function Leaves({ data, toast }: Props) {
         <div className="between">
           <h2>Calendario</h2>
           <div className="month-nav">
-            <button className="btn small" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Mes anterior">←</button>
+            <button className="btn small" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Mes anterior"><Icon name="left" size={16} /></button>
             <strong className="cap">{monthName(month)}</strong>
-            <button className="btn small" onClick={() => setMonth(shiftMonth(month, 1))} aria-label="Mes siguiente">→</button>
+            <button className="btn small" onClick={() => setMonth(shiftMonth(month, 1))} aria-label="Mes siguiente"><Icon name="right" size={16} /></button>
           </div>
         </div>
         <p className="muted hint">Toca el primer día y luego el último para pedir vacaciones u otra ausencia.</p>
@@ -407,7 +411,7 @@ function Leaves({ data, toast }: Props) {
               <div className="cell-actions">
                 {admin && r.status !== "aprobada" && <button className="btn small" onClick={() => resolveLeave(r.id, "aprobada", toast)}>Aprobar</button>}
                 {admin && r.status !== "rechazada" && <button className="btn small" onClick={() => resolveLeave(r.id, "rechazada", toast)}>Rechazar</button>}
-                {(admin || r.status === "pendiente") && <button className="btn small" onClick={() => window.confirm("¿Retirar esta solicitud?") && remove(r.id)}>Retirar</button>}
+                {(admin || r.status === "pendiente") && <button className="btn small" onClick={async () => (await dlg.confirm({ title: "¿Retirar esta solicitud?", ok: "Retirar", danger: true })) && remove(r.id)}>Retirar</button>}
               </div>
             </li>
           ))}
@@ -421,6 +425,7 @@ function Leaves({ data, toast }: Props) {
 /* ============================== Nóminas ============================== */
 
 function Payslips({ data, toast }: Props) {
+  const dlg = useDialogs();
   const admin = data.me.role === "admin";
   const [state, setState] = useState<{ ready: boolean; payslips: Payslip[]; people: Person[] } | null>(null);
   const [user, setUser] = useState("");
@@ -505,7 +510,7 @@ function Payslips({ data, toast }: Props) {
                   <button
                     className="btn small"
                     onClick={async () => {
-                      if (!window.confirm("¿Borrar esta nómina?")) return;
+                      if (!(await dlg.confirm({ title: "¿Borrar esta nómina?", text: "El trabajador dejará de verla.", ok: "Borrar", danger: true }))) return;
                       try {
                         await api(`/api/portal/nominas?id=${p.id}`, "DELETE");
                         toast("Nómina borrada");
@@ -648,7 +653,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
   const ending = left !== null && left <= SHIFT_WARN_MS;
   const warned = useRef(false);
   useEffect(() => {
-    if (ending && !warned.current) toast(left! > 0 ? "⏳ Te quedan 5 minutos de jornada. Ve cerrando y ficha la salida." : "⏳ Has cumplido tu jornada. Ficha la salida en el Portal.");
+    if (ending && !warned.current) toast(left! > 0 ? "Te quedan 5 minutos de jornada. Ve cerrando y ficha la salida." : "Has cumplido tu jornada. Ficha la salida en el Portal.");
     warned.current = ending;
   });
 
@@ -661,12 +666,12 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
     }
     for (const l of due) {
       const k = `r:${l.id}:${l.f.rellamada}`;
-      if (!announced.current.has(k)) toast(`📞 Te toca rellamar a ${String(l.f.nombre ?? "un lead")}`);
+      if (!announced.current.has(k)) toast(`Te toca rellamar a ${String(l.f.nombre ?? "un lead")}`);
       announced.current.add(k);
     }
     for (const c of chats) {
       const k = `w:${c.id}:${c.unread}`;
-      if (!announced.current.has(k)) toast(`💬 ${c.name} te ha escrito por WhatsApp`);
+      if (!announced.current.has(k)) toast(`${c.name} te ha escrito por WhatsApp`);
       announced.current.add(k);
     }
   });
@@ -694,9 +699,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
   return (
     <div className="bell">
       <button className="btn small bell-btn" onClick={toggle} aria-expanded={open} aria-label={`Avisos: ${count} nuevos`}>
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M6 9a6 6 0 1 1 12 0c0 6 2.5 7 2.5 7h-17S6 15 6 9ZM10 20a2 2 0 0 0 4 0" />
-        </svg>
+        <Icon name="bell" size={18} />
         {count > 0 && <span className="badge">{count}</span>}
       </button>
       {open && (
@@ -708,7 +711,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
             {ending && (
               <li>
                 <button className="news" onClick={go(onGoPortal)}>
-                  <span>⏳ {left! > 0 ? "Tu jornada termina enseguida" : "Has cumplido tu jornada"}</span>
+                  <span className="news-line"><Icon name="hourglass" size={16} /> {left! > 0 ? "Tu jornada termina enseguida" : "Has cumplido tu jornada"}</span>
                   <span className="muted hint">Ya no te salen más llamadas. Ficha la salida en el Portal al terminar.</span>
                 </button>
               </li>
@@ -716,7 +719,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
             {due.map((l) => (
               <li key={`r${l.id}`}>
                 <button className="news" onClick={go(() => onOpenLead(l.id))}>
-                  <span>📞 Te toca rellamar a <strong>{String(l.f.nombre ?? "")}</strong></span>
+                  <span className="news-line"><Icon name="phone" size={16} /> Te toca rellamar a <strong>{String(l.f.nombre ?? "")}</strong></span>
                   <span className="muted hint">Programada a las {time(String(l.f.rellamada))}</span>
                 </button>
               </li>
@@ -724,7 +727,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
             {chats.map((c) => (
               <li key={`w${c.id}`}>
                 <button className="news" onClick={go(onGoWhatsApp)}>
-                  <span>💬 <strong>{c.name}</strong> te ha escrito{c.unread > 1 ? ` (${c.unread})` : ""}</span>
+                  <span className="news-line"><Icon name="chat" size={16} /> <strong>{c.name}</strong> te ha escrito{c.unread > 1 ? ` (${c.unread})` : ""}</span>
                   <span className="muted hint">{c.last}</span>
                 </button>
               </li>
@@ -732,7 +735,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
             {clock.map((c) => (
               <li key={`c${c.id}`}>
                 <button className="news" onClick={go(onGoPortal)}>
-                  <span>⏰ {c.mine ? "Tu jornada sigue abierta" : <><strong>{c.name}</strong> no ha fichado la salida</>}</span>
+                  <span className="news-line"><Icon name="alarm" size={16} /> {c.mine ? "Tu jornada sigue abierta" : <><strong>{c.name}</strong> no ha fichado la salida</>}</span>
                   <span className="muted hint">Lleva {c.hours} h abierta. {c.mine ? "¿Olvidaste fichar la salida?" : "Puedes corregirla en Portal → Fichaje."}</span>
                 </button>
               </li>
@@ -753,7 +756,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
             {news.map((n) => (
               <li key={n.id} className={new Date(n.at).getTime() > seen ? "" : "off"}>
                 <button className="news" onClick={go(onGoPortal)}>
-                  <span>{n.kind === "nomina" ? "📄" : n.kind === "aprobada" ? "✅" : "❌"} {n.text}</span>
+                  <span className="news-line"><Icon name={n.kind === "nomina" ? "file" : n.kind === "aprobada" ? "check" : "x"} size={16} /> {n.text}</span>
                   <span className="muted hint">{new Date(n.at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</span>
                 </button>
               </li>

@@ -4,6 +4,7 @@ import { isClosed, stageOf } from "@/lib/fields";
 import type { Lead, LeadsPayload, Schema } from "@/lib/types";
 import type { Actions } from "./App";
 import CallButton from "./CallButton";
+import Icon from "./Icon";
 import { api, dayDiff, entryTime, fmtAgo, fmtWhen, isDue, matches, parseWhen, pretty, str } from "./util";
 
 interface Props {
@@ -119,9 +120,9 @@ function AgendaCalendar({ list, data, actions }: Props & { list: Lead[] }) {
       <section className="card">
         <div className="between">
           <div className="month-nav">
-            <button className="btn small" onClick={() => move(-1)} aria-label="Mes anterior">←</button>
+            <button className="btn small" onClick={() => move(-1)} aria-label="Mes anterior"><Icon name="left" size={16} /></button>
             <strong className="cap">{new Date(`${month}-01T12:00:00`).toLocaleDateString("es-ES", { month: "long", year: "numeric" })}</strong>
-            <button className="btn small" onClick={() => move(1)} aria-label="Mes siguiente">→</button>
+            <button className="btn small" onClick={() => move(1)} aria-label="Mes siguiente"><Icon name="right" size={16} /></button>
           </div>
           <button className="btn small" onClick={() => { setMonth(today.slice(0, 7)); setDay(today); }}>Hoy</button>
         </div>

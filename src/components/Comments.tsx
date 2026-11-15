@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { Comment } from "@/lib/types";
+import Icon from "./Icon";
 
 const MAX = 4 * 1024 * 1024;
 
@@ -76,7 +77,7 @@ export default function Comments({ leadId, compose, toast }: { leadId: string; c
               {c.text && <span className="note-text">{c.text}</span>}
               {c.files.map((f, i) => (
                 <a key={i} className="file" href={f.url} target="_blank" rel="noreferrer">
-                  📎 {f.name}
+                  <Icon name="clip" size={15} /> {f.name}
                 </a>
               ))}
             </li>

@@ -1,17 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 import type { LeadsPayload } from "@/lib/types";
+import Icon, { type IconName } from "./Icon";
 
 type Go = "llamar" | "hoy" | "leads" | "whatsapp" | "panel" | "portal" | "equipo";
 
 interface Step {
-  icon: string;
+  icon: IconName;
   title: string;
   text: string;
 }
 interface Guide {
   id: string;
-  icon: string;
+  icon: IconName;
   title: string;
   summary: string;
   go: Go;
@@ -24,62 +25,62 @@ interface Guide {
 const GUIDES: Guide[] = [
   {
     id: "fichar",
-    icon: "⏱️",
+    icon: "clock",
     title: "Fichar tu jornada",
     summary: "Entrada, descansos y salida.",
     go: "portal",
     goLabel: "Ir a Portal",
     steps: [
-      { icon: "▶️", title: "Ficha al empezar", text: "Entra en Portal y pulsa «Entrar». El contador empieza a correr. Hasta que no fiches, no te salen llamadas." },
-      { icon: "☕", title: "Apunta tus descansos", text: "Cuando pares, pulsa «Empezar descanso». Al volver, «Volver del descanso». El contador se para mientras tanto." },
-      { icon: "⏹️", title: "Ficha al terminar", text: "Al acabar el día pulsa «Salir». Tu jornada queda guardada y la ves en la tabla de abajo." },
-      { icon: "🌇", title: "Cuando se acaba tu jornada", text: "Cinco minutos antes de cumplir tus horas te avisamos y dejan de salirte llamadas. Termina lo que tengas abierto y ficha la salida." },
-      { icon: "🙋", title: "¿Se te olvidó fichar?", text: "Ficha en cuanto te acuerdes y díselo a dirección: solo ellos pueden corregir la hora. Si llevas muchas horas con la jornada abierta, la campana te avisa." },
+      { icon: "play", title: "Ficha al empezar", text: "Entra en Portal y pulsa «Entrar». El contador empieza a correr. Hasta que no fiches, no te salen llamadas." },
+      { icon: "coffee", title: "Apunta tus descansos", text: "Cuando pares, pulsa «Empezar descanso». Al volver, «Volver del descanso». El contador se para mientras tanto." },
+      { icon: "stop", title: "Ficha al terminar", text: "Al acabar el día pulsa «Salir». Tu jornada queda guardada y la ves en la tabla de abajo." },
+      { icon: "sunset", title: "Cuando se acaba tu jornada", text: "Cinco minutos antes de cumplir tus horas te avisamos y dejan de salirte llamadas. Termina lo que tengas abierto y ficha la salida." },
+      { icon: "help", title: "¿Se te olvidó fichar?", text: "Ficha en cuanto te acuerdes y díselo a dirección: solo ellos pueden corregir la hora. Si llevas muchas horas con la jornada abierta, la campana te avisa." },
     ],
   },
   {
     id: "llamar",
-    icon: "📞",
+    icon: "phone",
     title: "Hacer llamadas",
     summary: "Un lead cada vez: llamas, marcas y siguiente.",
     go: "llamar",
     goLabel: "Ir a Llamar",
     steps: [
-      { icon: "🟢", title: "Pulsa «Empezar a llamar»", text: "Te sale un lead con sus datos y lo que contestó en el formulario. No tienes que elegir a quién llamar: la app te los va dando." },
-      { icon: "📱", title: "Pulsa «Llamar»", text: "En el móvil se marca el número. En el ordenador te llega un aviso al móvil; acéptalo y llama desde ahí." },
-      { icon: "📝", title: "Escribe una nota si hace falta", text: "Lo que te cuente el cliente va en «Notas». Se guarda sola al marcar el resultado." },
-      { icon: "✅", title: "Marca el resultado", text: "No contesta, Rellamar, Interesado, Firmado… Al pulsarlo se guarda y aparece el siguiente lead." },
-      { icon: "⏰", title: "Si hay que volver a llamar", text: "Elige «Rellamar» y pon el día y la hora. Cuando llegue ese momento, la campana te avisa y el lead te vuelve a salir." },
-      { icon: "🗓️", title: "Mira tu agenda", text: "En Agenda ves tus rellamadas en un calendario («Personal» son las tuyas, «Global» las de todos): las atrasadas en rojo y las que vienen en azul. Toca un día para ver a quién toca llamar. Si necesitas mover una, abre el lead y cambia la fecha." },
-      { icon: "🏆", title: "Si firma", text: "Pulsa «Firmado» y sube el contrato (PDF o foto). Cuenta para tu bono, que ves arriba de la pantalla." },
+      { icon: "play", title: "Pulsa «Empezar a llamar»", text: "Te sale un lead con sus datos y lo que contestó en el formulario. No tienes que elegir a quién llamar: la app te los va dando." },
+      { icon: "mobile", title: "Pulsa «Llamar»", text: "En el móvil se marca el número. En el ordenador te llega un aviso al móvil; acéptalo y llama desde ahí." },
+      { icon: "note", title: "Escribe una nota si hace falta", text: "Lo que te cuente el cliente va en «Notas». Se guarda sola al marcar el resultado." },
+      { icon: "check", title: "Marca el resultado", text: "Ilocalizable si no lo coge, Rellamar, Interesado, Firmado… Al pulsarlo se guarda y aparece el siguiente lead." },
+      { icon: "alarm", title: "Si hay que volver a llamar", text: "Elige «Rellamar» y pon el día y la hora. Cuando llegue ese momento, la campana te avisa y el lead te vuelve a salir." },
+      { icon: "calendar", title: "Mira tu agenda", text: "En Agenda ves tus rellamadas en un calendario («Personal» son las tuyas, «Global» las de todos): las atrasadas en rojo y las que vienen en azul. Toca un día para ver a quién toca llamar. Si necesitas mover una, abre el lead y cambia la fecha." },
+      { icon: "trophy", title: "Si firma", text: "Pulsa «Firmado» y sube el contrato (PDF o foto). Cuenta para tu bono, que ves arriba de la pantalla." },
     ],
   },
   {
     id: "whatsapp",
-    icon: "💬",
+    icon: "chat",
     title: "Contestar WhatsApp",
     summary: "Tus chats con tus clientes, dentro de la app.",
     go: "whatsapp",
     goLabel: "Ir a WhatsApp",
     steps: [
-      { icon: "👤", title: "«Mis chats» son los tuyos", text: "En WhatsApp ves primero solo tus conversaciones. En «Global» están las de todo el equipo." },
-      { icon: "✍️", title: "Abre un chat y escribe", text: "Escribe abajo y pulsa «Enviar». Con el clip adjuntas un archivo. Si contestas a un chat que no era de nadie, pasa a ser tuyo." },
-      { icon: "⚡", title: "Usa un mensaje preparado", text: "Encima de la caja tienes tus mensajes hechos, por ejemplo «No localizado». Púlsalo y se pega con el nombre del cliente; revísalo y envía. En «Mis mensajes» los cambias a tu gusto." },
-      { icon: "🔵", title: "¿Lo abriste sin querer?", text: "Pulsa «No leído» arriba del chat. Queda marcado para que no se te olvide, y lo encuentras con «Solo no leídos»." },
-      { icon: "🔔", title: "Te avisamos", text: "Cuando un cliente tuyo te escribe, la campana de arriba a la derecha te lo dice." },
+      { icon: "user", title: "«Mis chats» son los tuyos", text: "En WhatsApp ves primero solo tus conversaciones. En «Global» están las de todo el equipo." },
+      { icon: "pencil", title: "Abre un chat y escribe", text: "Escribe abajo y pulsa «Enviar». Con el clip adjuntas un archivo. Si contestas a un chat que no era de nadie, pasa a ser tuyo." },
+      { icon: "bolt", title: "Usa un mensaje preparado", text: "Encima de la caja tienes tus mensajes hechos, por ejemplo «No localizado». Púlsalo y se pega con el nombre del cliente; revísalo y envía. En «Mis mensajes» los cambias a tu gusto." },
+      { icon: "eyeoff", title: "¿Lo abriste sin querer?", text: "Pulsa «No leído» arriba del chat. Queda marcado para que no se te olvide, y lo encuentras con «Solo no leídos»." },
+      { icon: "bell", title: "Te avisamos", text: "Cuando un cliente tuyo te escribe, la campana de arriba a la derecha te lo dice." },
     ],
   },
   {
     id: "portal",
-    icon: "🏖️",
+    icon: "sun",
     title: "Vacaciones y nóminas",
     summary: "Pedir días libres y descargar tu nómina.",
     go: "portal",
     goLabel: "Ir a Portal",
     steps: [
-      { icon: "📅", title: "Pide tus vacaciones", text: "En Portal → Vacaciones, toca el primer día y luego el último en el calendario. Elige el tipo y pulsa «Enviar solicitud»." },
-      { icon: "⏳", title: "Espera la respuesta", text: "La solicitud queda «pendiente» hasta que dirección la aprueba o la rechaza. La campana te avisa cuando lo hagan." },
-      { icon: "📄", title: "Descarga tu nómina", text: "En Portal → Nóminas tienes las tuyas, por mes. Pulsa «Descargar». Cuando suban una nueva, también te avisa la campana." },
+      { icon: "calendar", title: "Pide tus vacaciones", text: "En Portal → Vacaciones, toca el primer día y luego el último en el calendario. Elige el tipo y pulsa «Enviar solicitud»." },
+      { icon: "hourglass", title: "Espera la respuesta", text: "La solicitud queda «pendiente» hasta que dirección la aprueba o la rechaza. La campana te avisa cuando lo hagan." },
+      { icon: "file", title: "Descarga tu nómina", text: "En Portal → Nóminas tienes las tuyas, por mes. Pulsa «Descargar». Cuando suban una nueva, también te avisa la campana." },
     ],
   },
 ];
@@ -95,26 +96,26 @@ function Tutorial({ guide, done, onDone, goTo }: { guide: Guide; done: boolean; 
   if (!open) {
     return (
       <button className="card guide" onClick={() => { setOpen(true); setI(0); }}>
-        <span className="guide-icon" aria-hidden>{guide.icon}</span>
+        <span className="guide-icon"><Icon name={guide.icon} size={22} /></span>
         <span className="guide-text">
           <strong>{guide.title}</strong>
           <span className="muted hint">{guide.summary} · {guide.steps.length} pasos</span>
         </span>
-        <span className={done ? "pill on" : "pill"}>{done ? "Visto ✓" : "Empezar"}</span>
+        <span className={done ? "pill on" : "pill"}>{done ? "Visto" : "Empezar"}</span>
       </button>
     );
   }
   return (
     <section className="card guide-open" aria-label={guide.title}>
       <div className="between">
-        <h2>{guide.icon} {guide.title}</h2>
+        <h2><Icon name={guide.icon} size={18} /> {guide.title}</h2>
         <button className="btn small" onClick={() => setOpen(false)}>Cerrar</button>
       </div>
       <div className="dots" aria-hidden>
         {guide.steps.map((_, k) => <i key={k} className={k === i ? "on" : k < i ? "past" : ""} />)}
       </div>
       <div className="step-card" aria-live="polite">
-        <span className="step-icon" aria-hidden>{step.icon}</span>
+        <span className="step-icon"><Icon name={step.icon} size={30} /></span>
         <span className="muted hint">Paso {i + 1} de {guide.steps.length}</span>
         <strong className="step-title">{step.title}</strong>
         <p>{step.text}</p>

@@ -6,6 +6,7 @@ import { api, dayKey, digits, str, timeKey } from "./util";
 
 const NO_CONTACT = new Set(["ILOCALIZABLE", "NUMERO ERRONEO", "SALTADO", ""]);
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)} %` : "—");
+const nice = (s: string) => (s ? s.charAt(0) + s.slice(1).toLowerCase().replace(/\bo2\b/g, "O2") : "");
 const hm = (s: number) => (s >= 3600 ? `${Math.floor(s / 3600)} h ${String(Math.round((s % 3600) / 60)).padStart(2, "0")} min` : `${Math.round(s / 60)} min`);
 const mmss = (s: number) => (Number.isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}` : "—");
 
@@ -68,7 +69,7 @@ function stats(rows: CallLog[]): Stats {
 export default function Activity({ data, onOpenLead }: { data: LeadsPayload; onOpenLead?: (id: string) => void }) {
   const [who, setWho] = useState("");
   const [onlyFlagged, setOnlyFlagged] = useState(false);
-  const [limit, setLimit] = useState(40);
+  const [limit, setLimit] = useState(15);
   const [days, setDays] = useState<1 | 7 | 30>(1);
   const [calls, setCalls] = useState<CallLog[] | null>(null);
   const [ready, setReady] = useState(true);
@@ -243,7 +244,7 @@ function CallList({ calls, data, who, setWho, onlyFlagged, setOnlyFlagged, limit
     <div className="calllist">
       <h3 className="sub">Registro de llamadas</h3>
       <p className="muted hint">
-        «En llamada» es el tiempo que el móvil estuvo fuera de la app tras pulsar Llamar (incluye los tonos). «—» significa que no se pudo
+        «En llamada» es el tiempo que el móvil estuvo fuera de la app tras pulsar Llamar (incluye los tonos). Una raya significa que no se pudo
         medir. No sustituye al registro del operador, pero deja ver quién marca resultados sin llamar.
       </p>
       <div className="filters">
@@ -267,7 +268,6 @@ function CallList({ calls, data, who, setWho, onlyFlagged, setOnlyFlagged, limit
               <th>Resultado</th>
               <th>En llamada</th>
               <th>Con el lead</th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -287,19 +287,21 @@ function CallList({ calls, data, who, setWho, onlyFlagged, setOnlyFlagged, limit
                     )}
                   </td>
                   <td>{c.phone || (lead ? `+${digits(lead.f.telefono)}` : "—")}</td>
-                  <td className="left">{c.result === "SALTADO" ? "Saltado" : c.result || "—"}</td>
+                  <td className="left">
+                    <span className="result-cell">
+                      {c.result === "SALTADO" ? "Saltado" : nice(c.result) || "—"}
+                      {flag === "nocall" && <span className="pill warn">Sin pulsar Llamar</span>}
+                      {flag === "short" && <span className="pill warn">Llamada de {c.away} s</span>}
+                      {c.source === "ficha" && <span className="pill">Apuntado en la ficha</span>}
+                    </span>
+                  </td>
                   <td>{c.away ? mmss(c.away) : "—"}</td>
                   <td>{c.seconds ? mmss(c.seconds) : "—"}</td>
-                  <td className="left">
-                    {flag === "nocall" && <span className="pill warn">Sin pulsar Llamar</span>}
-                    {flag === "short" && <span className="pill warn">Llamada de {c.away} s</span>}
-                    {c.source === "ficha" && <span className="pill">Apuntado en la ficha</span>}
-                  </td>
                 </tr>
               );
             })}
             {rows.length === 0 && (
-              <tr><td colSpan={8} className="muted">Sin llamadas con ese filtro.</td></tr>
+              <tr><td colSpan={7} className="muted">Sin llamadas con ese filtro.</td></tr>
             )}
           </tbody>
         </table>

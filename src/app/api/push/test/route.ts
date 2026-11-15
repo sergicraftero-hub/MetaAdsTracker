@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 /** Envía una notificación de prueba a los dispositivos de quien la pide. */
 export const POST = handle(async () => {
   const me = await requireSession();
-  const sent = await sendPush([me.email], { title: "🔔 BUT Calls", body: "Las notificaciones funcionan en este dispositivo.", tag: "prueba" });
+  const sent = await sendPush([me.email], { title: "BUT Calls", body: "Las notificaciones funcionan en este dispositivo.", tag: "prueba" });
   return NextResponse.json({ sent });
 });
 
