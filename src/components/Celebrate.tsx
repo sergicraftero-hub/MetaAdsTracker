@@ -55,7 +55,6 @@ export default function Celebration() {
         </svg>
         <strong className="party-title">¡Firmado!</strong>
         {party.name && <span className="party-name">{party.name}</span>}
-        <span className="party-sub">Buen trabajo.</span>
       </div>
     </div>
   );
