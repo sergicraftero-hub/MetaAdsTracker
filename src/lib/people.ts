@@ -7,3 +7,10 @@ export async function comercialCodes(): Promise<string[]> {
   for (const u of users) if (u.code && u.active) set.add(u.code);
   return [...set];
 }
+
+/** Horas de jornada al día: entre 0 (sin límite) y 16. */
+export function cleanHours(v: unknown): number {
+  const n = Number(String(v ?? "").replace(",", "."));
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 16) : 0;
+}
+

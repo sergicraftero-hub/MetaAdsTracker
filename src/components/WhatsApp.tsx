@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Lead, LeadsPayload, WaChat, WaMessage } from "@/lib/types";
+import Templates from "./Templates";
 import { digits, str } from "./util";
 
 interface Inbox {
@@ -45,9 +46,11 @@ interface ChatProps {
   onUnread?: () => void;
   /** El chat estaba marcado a mano como no leído: al abrirlo se le quita la marca */
   flagged?: boolean;
+  /** Nombre de quien escribe, para los mensajes preparados */
+  me: string;
 }
 
-export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast, owner, comerciales, onAssign, onUnread, flagged }: ChatProps) {
+export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast, owner, comerciales, onAssign, onUnread, flagged, me }: ChatProps) {
   const [messages, setMessages] = useState<WaMessage[] | null>(null);
   const [error, setError] = useState("");
   const [text, setText] = useState("");
@@ -169,13 +172,14 @@ export function ChatView({ chat, title, subtitle, onBack, onOpenLead, toast, own
             <button type="button" aria-label="Quitar archivo" onClick={() => { setFile(null); setFileKey((k) => k + 1); }}>×</button>
           </span>
         )}
+        <Templates nombre={title} yo={me} toast={toast} onPick={(t) => setText((cur) => (cur.trim() ? `${cur.trim()}\n${t}` : t))} />
         <div className="chat-row">
           <label className="icon-btn clip" title="Adjuntar archivo (hasta 4 MB)">
             📎
             <input key={fileKey} type="file" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </label>
           <textarea
-            rows={1}
+            rows={text.length > 60 ? 4 : 1}
             value={text}
             placeholder="Escribe un mensaje"
             aria-label="Mensaje"
@@ -348,6 +352,7 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
             comerciales={data.comerciales}
             onAssign={(o) => assign(open, o)}
             onUnread={() => markUnread(open)}
+            me={data.me.name}
             flagged={flagged}
           />
         ) : (

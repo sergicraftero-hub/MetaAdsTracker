@@ -6,7 +6,7 @@ import { BonusCards } from "./Bonuses";
 import CallButton from "./CallButton";
 import Comments, { postComment } from "./Comments";
 import { SOURCE_LABEL, buildPools, nextPick, type Source } from "./queue";
-import { api, dayKey, fmtAgo, fmtWhen, pretty, str, telHref, timeKey, waHref } from "./util";
+import { SHIFT_WARN_MS, api, dayKey, fmtAgo, fmtWhen, pretty, shiftRemaining, str, telHref, timeKey, waHref } from "./util";
 
 interface Props {
   data: LeadsPayload;
@@ -45,6 +45,8 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
   meRef.current = data.me;
   const workingRef = useRef(data.working);
   workingRef.current = data.working;
+  const clockRef = useRef(data.clock);
+  clockRef.current = data.clock;
 
   if (session.day !== dayKey(new Date())) Object.assign(session, { handled: new Set<string>(), slot: 0, done: 0, day: dayKey(new Date()) });
 
@@ -108,7 +110,11 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
       session.handled.add(cur.id);
       session.slot += cur.slots;
       if (fields) session.done++;
-      await advance();
+      const left = meRef.current.role === "admin" ? null : shiftRemaining(clockRef.current);
+      if (left !== null && left <= SHIFT_WARN_MS) {
+        setCur(null);
+        setBusy(false);
+      } else await advance();
     } catch (e) {
       toast(`No se guardó: ${(e as Error).message}`, true);
       setBusy(false);
@@ -171,6 +177,26 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
           >
             Fichar entrada
           </button>
+        </section>
+      </div>
+    );
+  }
+
+  /* ----- Fin de jornada: en los últimos 5 minutos no se dan más llamadas ----- */
+  const remaining = data.me.role === "admin" ? null : shiftRemaining(data.clock);
+  const ending = remaining !== null && remaining <= SHIFT_WARN_MS;
+  if (ending && (!cur || !lead || !active)) {
+    return (
+      <div className="call-wrap">
+        <section className="card call-start">
+          <span className="mascot" aria-hidden>🌇</span>
+          <h2 className="lead-name">{remaining > 0 ? "Tu jornada termina enseguida" : "Has cumplido tu jornada"}</h2>
+          <p className="muted">
+            {remaining > 0
+              ? `Te quedan ${Math.max(1, Math.ceil(remaining / 60_000))} minutos, así que ya no te damos más llamadas: no daría tiempo a atenderlas bien.`
+              : "Por hoy ya no te damos más llamadas."}{" "}
+            Deja anotado lo que tengas pendiente y ficha la salida en el Portal. ¡Buen trabajo hoy!
+          </p>
         </section>
       </div>
     );

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isClosed } from "@/lib/fields";
 import type { Leave, LeadsPayload, Payslip, Person, Shift } from "@/lib/types";
-import { api, dayKey } from "./util";
+import { SHIFT_WARN_MS, api, dayKey, shiftRemaining } from "./util";
 
 type Toast = (m: string, e?: boolean) => void;
 interface Props {
@@ -642,6 +642,15 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
         return t <= now && t >= startOfDay;
       });
 
+  // Fin de jornada: aviso cuando quedan 5 minutos (dirección no tiene límite)
+  const left = data.me.role === "admin" ? null : shiftRemaining(data.clock, now);
+  const ending = left !== null && left <= SHIFT_WARN_MS;
+  const warned = useRef(false);
+  useEffect(() => {
+    if (ending && !warned.current) toast(left! > 0 ? "⏳ Te quedan 5 minutos de jornada. Ve cerrando y ficha la salida." : "⏳ Has cumplido tu jornada. Ficha la salida en el Portal.");
+    warned.current = ending;
+  });
+
   // Aviso emergente la primera vez que aparece una rellamada o un mensaje nuevo
   useEffect(() => {
     const keys = [...due.map((l) => `r:${l.id}:${l.f.rellamada}`), ...chats.map((c) => `w:${c.id}:${c.unread}`)];
@@ -662,8 +671,8 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
   });
 
   const fresh = news.filter((n) => new Date(n.at).getTime() > seen);
-  const count = pending.length + fresh.length + due.length + chats.length + clock.length;
-  const empty = !pending.length && !news.length && !due.length && !chats.length && !clock.length;
+  const count = pending.length + fresh.length + due.length + chats.length + clock.length + (ending ? 1 : 0);
+  const empty = !pending.length && !news.length && !due.length && !chats.length && !clock.length && !ending;
 
   function toggle() {
     if (open && fresh.length) {
@@ -694,6 +703,14 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
           <h2>Avisos</h2>
           {empty && <p className="muted hint">No tienes avisos.</p>}
           <ul className="bonus-admin">
+            {ending && (
+              <li>
+                <button className="news" onClick={go(onGoPortal)}>
+                  <span>⏳ {left! > 0 ? "Tu jornada termina enseguida" : "Has cumplido tu jornada"}</span>
+                  <span className="muted hint">Ya no te salen más llamadas. Ficha la salida en el Portal al terminar.</span>
+                </button>
+              </li>
+            )}
             {due.map((l) => (
               <li key={`r${l.id}`}>
                 <button className="news" onClick={go(() => onOpenLead(l.id))}>

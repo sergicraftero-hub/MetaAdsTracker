@@ -20,6 +20,7 @@ const ESTADOS: Option[] = [
   { name: "SIN COBERTURA", color: "brown" },
   { name: "CLIENTE EXISTENTE O2", color: "pink" },
   { name: "NUMERO ERRONEO", color: "pink" },
+  { name: "PERDIDO", color: "gray" },
 ];
 const COMERCIALES: Option[] = [
   { name: "ANA", color: "pink" },
@@ -153,7 +154,7 @@ function state(): DemoState {
     waLabels: new Map(),
     waUnread: new Map(),
     locks: new Map(),
-    rows: { fichajes: [], solicitudes: [], nominas: [] },
+    rows: { fichajes: [], solicitudes: [], nominas: [], ajustes: [] },
     wa: new Map(
       leads.slice(9, 14).map((l, i) => {
         const id = `${String(l.f.telefono).replace(/\D/g, "")}@s.whatsapp.net`;
@@ -167,7 +168,7 @@ function state(): DemoState {
       { id: "b-2", title: "Sprint de Ana", prize: "Tarde libre el viernes", metric: "llamadas", goal: 30, period: "dia", para: "ANA", active: true },
     ],
     users: [
-      { id: "u-ana", name: "Ana (comercial demo)", email: "ana@demo.com", role: "comercial", code: "ANA", active: true, hash: hashPassword("demo") },
+      { id: "u-ana", name: "Ana (comercial demo)", email: "ana@demo.com", role: "comercial", code: "ANA", active: true, hours: 8, hash: hashPassword("demo") },
       { id: "u-luis", name: "Luis (comercial demo)", email: "luis@demo.com", role: "comercial", code: "LUIS", active: true, hash: hashPassword("demo") },
     ],
     n: 100,

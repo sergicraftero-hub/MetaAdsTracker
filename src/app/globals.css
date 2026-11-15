@@ -434,3 +434,24 @@ button.guide:hover { background: var(--surface-2); }
 .manual dd { margin: 2px 0 0; color: var(--muted); }
 .card details + details { margin-top: 2px; }
 .card details p { margin: 6px 0 4px; }
+
+/* ---------- Mensajes preparados de WhatsApp ---------- */
+.tpl-row { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.tpl-row .tag { flex: none; min-height: 32px; padding: 4px 12px; font-size: 13px; }
+.tag.ghost { border-style: dashed; }
+.modal.wide { width: min(560px, 100%); }
+.tpl-edit { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
+.tpl-head { grid-template-columns: 1fr auto; }
+
+/* ---------- Agenda en calendario ---------- */
+.agenda-cal .cal-day { min-height: 78px; cursor: pointer; }
+.cal-num { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px; }
+.cal-count { font-style: normal; font-size: 11px; font-weight: 700; background: var(--series); color: #fff; border-radius: 99px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 5px; }
+.cal-count.late { background: #b3261e; }
+.cal-day.today { border-color: var(--navy); border-width: 2px; }
+.cal-day.over { background: #d3e5ef; }
+.agenda-cal .chip { cursor: grab; }
+@media (max-width: 820px) {
+  .agenda-cal .cal-marks { display: none; }
+  .agenda-cal .cal-day { min-height: 52px; }
+}

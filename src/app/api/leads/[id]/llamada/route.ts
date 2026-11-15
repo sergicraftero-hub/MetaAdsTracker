@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { handle, requireSession } from "@/lib/auth";
 import { stageOf } from "@/lib/fields";
-import { attemptFields, cleanFields, visibleLead } from "@/lib/leadRules";
+import { applyLostRule, attemptFields, cleanFields, visibleLead } from "@/lib/leadRules";
 import { store } from "@/lib/store";
 
 interface Body {
@@ -31,7 +31,7 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
     if (stageOf(fields.estado) === "ganado" && !current.f.estadoContrato && schema.estadoContrato.options?.some((o) => o.name === "FIRMADO")) {
       fields.estadoContrato = "FIRMADO";
     }
-    lead = await store.updateLead(id, fields);
+    lead = await store.updateLead(id, applyLostRule(fields, current));
   }
 
   const shown = new Date(body.shownAt ?? "");

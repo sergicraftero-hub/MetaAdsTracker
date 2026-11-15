@@ -1,5 +1,5 @@
 import { HttpError } from "./auth";
-import { canSee } from "./fields";
+import { LOST_STATE, MAX_ATTEMPTS, canSee } from "./fields";
 import { store, unassignedVisible } from "./store";
 import { working } from "./working";
 import { FIELD_KEYS } from "./types";
@@ -34,6 +34,17 @@ export function cleanFields(input: Record<string, unknown>, me: Session, current
     }
   }
   return out;
+}
+
+/**
+ * Al quinto intento sin haber localizado al lead, pasa a «PERDIDO»: la cola no lo vuelve a sacar
+ * y solo se recupera cambiándole el estado desde la pestaña Leads.
+ */
+export function applyLostRule(fields: Partial<Fields>, current: Lead): Partial<Fields> {
+  const attempts = typeof fields.intentos === "number" ? fields.intentos : 0;
+  const estado = String(("estado" in fields ? fields.estado : current.f.estado) ?? "").toUpperCase();
+  if (attempts >= MAX_ATTEMPTS && (!estado || estado === "ILOCALIZABLE")) return { ...fields, estado: LOST_STATE, rellamada: null };
+  return fields;
 }
 
 const madrid = (opts: Intl.DateTimeFormatOptions) =>

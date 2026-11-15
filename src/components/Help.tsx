@@ -33,6 +33,7 @@ const GUIDES: Guide[] = [
       { icon: "▶️", title: "Ficha al empezar", text: "Entra en Portal y pulsa «Entrar». El contador empieza a correr. Hasta que no fiches, no te salen llamadas." },
       { icon: "☕", title: "Apunta tus descansos", text: "Cuando pares, pulsa «Empezar descanso». Al volver, «Volver del descanso». El contador se para mientras tanto." },
       { icon: "⏹️", title: "Ficha al terminar", text: "Al acabar el día pulsa «Salir». Tu jornada queda guardada y la ves en la tabla de abajo." },
+      { icon: "🌇", title: "Cuando se acaba tu jornada", text: "Cinco minutos antes de cumplir tus horas te avisamos y dejan de salirte llamadas. Termina lo que tengas abierto y ficha la salida." },
       { icon: "🙋", title: "¿Se te olvidó fichar?", text: "Ficha en cuanto te acuerdes y díselo a dirección: solo ellos pueden corregir la hora. Si llevas muchas horas con la jornada abierta, la campana te avisa." },
     ],
   },
@@ -49,6 +50,7 @@ const GUIDES: Guide[] = [
       { icon: "📝", title: "Escribe una nota si hace falta", text: "Lo que te cuente el cliente va en «Notas». Se guarda sola al marcar el resultado." },
       { icon: "✅", title: "Marca el resultado", text: "No contesta, Rellamar, Interesado, Firmado… Al pulsarlo se guarda y aparece el siguiente lead." },
       { icon: "⏰", title: "Si hay que volver a llamar", text: "Elige «Rellamar» y pon el día y la hora. Cuando llegue ese momento, la campana te avisa y el lead te vuelve a salir." },
+      { icon: "🗓️", title: "Mira tu agenda", text: "En Agenda ves tus rellamadas en un calendario: las atrasadas en rojo y las que vienen en azul. Toca un día para ver a quién toca llamar. Si necesitas mover una, abre el lead y cambia la fecha." },
       { icon: "🏆", title: "Si firma", text: "Pulsa «Firmado» y sube el contrato (PDF o foto). Cuenta para tu bono, que ves arriba de la pantalla." },
     ],
   },
@@ -62,6 +64,7 @@ const GUIDES: Guide[] = [
     steps: [
       { icon: "👤", title: "«Mis chats» son los tuyos", text: "En WhatsApp ves primero solo tus conversaciones. En «Global» están las de todo el equipo." },
       { icon: "✍️", title: "Abre un chat y escribe", text: "Escribe abajo y pulsa «Enviar». Con el clip adjuntas un archivo. Si contestas a un chat que no era de nadie, pasa a ser tuyo." },
+      { icon: "⚡", title: "Usa un mensaje preparado", text: "Encima de la caja tienes tus mensajes hechos, por ejemplo «No localizado». Púlsalo y se pega con el nombre del cliente; revísalo y envía. En «Mis mensajes» los cambias a tu gusto." },
       { icon: "🔵", title: "¿Lo abriste sin querer?", text: "Pulsa «No leído» arriba del chat. Queda marcado para que no se te olvide, y lo encuentras con «Solo no leídos»." },
       { icon: "🔔", title: "Te avisamos", text: "Cuando un cliente tuyo te escribe, la campana de arriba a la derecha te lo dice." },
     ],
@@ -146,10 +149,13 @@ const MANUAL: { title: string; items: [string, string][] }[] = [
       ["Orden de la cola", "A cada comercial le sale un lead cada vez: 2 leads antiguos sin llamar, 1 nuevo, y se repite. Cuando se acaban los leads sin llamar, entran los ilocalizables."],
       ["Rellamadas", "Una rellamada con hora de hoy pasa delante de todo cuando llega su hora. Las atrasadas de otros días, o de hoy sin hora, se intercalan una por ciclo para no tapar los leads nuevos."],
       ["Solo quien ha fichado", "Un comercial solo recibe llamadas mientras tiene la jornada abierta en el Portal. Dirección puede llamar sin fichar."],
+      ["Fin de jornada", "En Equipo pones las horas de jornada al día de cada persona (0 = sin límite). Cuando al comercial le quedan 5 minutos de tiempo trabajado (los descansos no cuentan), le salta un aviso y la pestaña Llamar deja de darle leads; el que tenga en pantalla puede terminarlo. Dirección no tiene límite."],
       ["Comercial ausente", "Los leads sin contactar e ilocalizables de un comercial que hoy no ha fichado (baja, vacaciones, día libre) salen al resto. Quien consigue hablar con uno se lo queda. Los leads ya contactados siguen siendo suyos."],
       ["Que nadie llame al mismo", "Mientras alguien tiene un lead en pantalla queda reservado y no le sale a nadie más, hasta que guarda el resultado o pasan 20 minutos. Si dos lo piden a la vez, solo uno lo recibe."],
       ["Cuándo se asigna", "Un lead sin comercial pasa a ser de quien pulsa «Llamar» o guarda un resultado. Solo con verlo en pantalla no se asigna."],
+      ["Límite de 5 intentos", "Al quinto intento de llamada sin localizar al lead (sigue en Ilocalizable o sin estado), pasa solo al estado PERDIDO y la cola no lo vuelve a sacar. Para recuperarlo hay que abrirlo en Leads y cambiarle el estado. Si en el quinto intento se consigue hablar con él, no se pierde."],
       ["Ilocalizables", "Vuelven a salir a su comercial cuando han pasado 3 horas desde el último intento, primero los que llevan menos intentos."],
+      ["Agenda", "Muestra todas las rellamadas pendientes, pasadas y futuras, en calendario o en lista. Las atrasadas salen en rojo. En ordenador se arrastra una rellamada a otro día para moverla (conserva la hora); en móvil se cambia desde la ficha del lead. Cada comercial ve las suyas o las de todo el equipo."],
       ["Rellamadas de otro", "Si el dueño no atiende una rellamada a su hora, a los 15 minutos le sale a quien esté de turno. En la Agenda cualquiera puede ver las de todo el equipo."],
       ["Lo que la cola no controla", "Si alguien llama a mano desde Leads o desde Notion, fuera de la pestaña Llamar, no hay reserva."],
     ],
@@ -172,6 +178,7 @@ const MANUAL: { title: string; items: [string, string][] }[] = [
       ["Cómo funciona", "Es el número del equipo conectado por Whapi (QR escaneado en su panel). Todos los usuarios ven la misma bandeja."],
       ["Mis chats y Global", "«Mis chats» son los que llevan la etiqueta del comercial o son de sus leads. «Global» son todos."],
       ["Asignar un chat", "Con el desplegable de arriba del chat. Por dentro es una etiqueta de WhatsApp Business con el nombre del comercial, así que también se ve desde el móvil. Quien contesta primero a un chat sin dueño se lo queda."],
+      ["Mensajes preparados", "Cada usuario tiene los suyos, encima de la caja de escribir, y los edita en «Mis mensajes». Al pulsar uno se pega en la caja con el nombre del cliente ({nombre}) y el suyo ({yo}); no se envía solo. Todos empiezan con tres de partida: No localizado, Segundo intento y Te paso la oferta."],
       ["No leído", "Abrir un chat lo marca como leído para el cliente. El botón «No leído» lo vuelve a marcar y le pone la etiqueta «No leído», que ve todo el equipo."],
       ["Quién escribió", "Los mensajes enviados desde la app llevan el nombre del comercial. Los enviados desde el móvil o WhatsApp Web salen sin nombre."],
       ["Riesgo", "Whapi no es la vía oficial de WhatsApp. Si se envía el mismo texto a muchos contactos que no han escrito antes, WhatsApp puede bloquear el número."],
@@ -263,6 +270,10 @@ export default function Help({ data, goTo }: { data: LeadsPayload; goTo: (t: Go)
             <details>
               <summary>No me salen llamadas</summary>
               <p className="hint">Comprueba que has fichado la entrada en Portal. Si ya has fichado y pone «No queda nadie por llamar», es que no hay leads pendientes para ti ahora mismo.</p>
+            </details>
+            <details>
+              <summary>¿Cuántas veces se llama a un lead que no contesta?</summary>
+              <p className="hint">Cinco. Al quinto intento sin localizarle pasa a «Perdido» y deja de salirte. Si más adelante quieres retomarlo, búscalo en Leads.</p>
             </details>
             <details>
               <summary>¿Qué es la campana de arriba?</summary>

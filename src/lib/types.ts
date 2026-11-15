@@ -59,6 +59,8 @@ export interface User {
   /** Valor de la columna COMERCIAL que identifica a este usuario */
   code: string;
   active: boolean;
+  /** Horas de jornada al día que fija dirección (0 = sin límite) */
+  hours?: number;
 }
 
 export interface StoredUser extends User {
@@ -81,6 +83,12 @@ export interface Comment {
   author: string;
   text: string;
   files: { name: string; url: string }[];
+}
+
+/** Mensaje de WhatsApp preparado por cada usuario. Admite {nombre} (del cliente) y {yo} (de quien escribe). */
+export interface Template {
+  title: string;
+  text: string;
 }
 
 /** Jornada fichada por un trabajador. */
@@ -207,6 +215,8 @@ export interface LeadsPayload {
   working: string[] | null;
   /** ¿Ha fichado la entrada quien pregunta? (null si no hay fichaje configurado) */
   clockedIn: boolean | null;
+  /** Jornada abierta de quien pregunta y sus horas diarias, para avisarle cuando se acaba */
+  clock: { start: string; breaks: { s: string; e: string | null }[]; hours: number } | null;
   /** ¿Está conectado el WhatsApp compartido? */
   waReady: boolean;
   /** ¿Existe la base de datos donde se registran las llamadas? */

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { HttpError, handle, requireSession } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
+import { cleanHours } from "@/lib/people";
 import { store } from "@/lib/store";
 import type { StoredUser, User } from "@/lib/types";
 
@@ -28,6 +29,7 @@ export const POST = handle(async (req: Request) => {
     email,
     role,
     code: (b.code ?? "").trim(),
+    hours: cleanHours(b.hours),
     active: true,
     hash: hashPassword(b.password),
   });

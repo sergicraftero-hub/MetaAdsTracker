@@ -18,12 +18,14 @@ export const GET = handle(async () => {
     working(),
   ]);
   const codes = w.ready ? w.codes : null;
+  const mine = w.shifts.find((x) => x.user === me.email);
   const comerciales = new Set<string>((schema.comercial.options ?? []).map((o) => o.name));
   for (const u of users) if (u.code && u.active) comerciales.add(u.code);
   const payload: LeadsPayload = {
     leads: leads.filter((l) => canSee(me, l, unassignedVisible(), codes)),
     working: codes,
     clockedIn: w.ready ? w.emails.has(me.email) : null,
+    clock: mine ? { start: mine.start, breaks: mine.breaks, hours: w.hours.get(me.email) ?? 0 } : null,
     schema,
     me,
     comerciales: [...comerciales],

@@ -155,7 +155,7 @@ interface Cache {
   log: { entries: Map<string, CallLog>; from: number; syncAt: number };
   people?: { at: number; names: Map<string, string> };
 }
-type AppDb = "users" | "log" | "alerts" | "bonus" | "wa" | "fichajes" | "solicitudes" | "nominas" | "locks";
+type AppDb = "users" | "log" | "alerts" | "bonus" | "wa" | "fichajes" | "solicitudes" | "nominas" | "locks" | "ajustes";
 const g = globalThis as unknown as { __crmNotion?: Cache };
 const cache: Cache = (g.__crmNotion ??= { leads: new Map(), fullAt: 0, syncAt: 0, appDbs: {}, log: { entries: new Map(), from: Infinity, syncAt: 0 } });
 
@@ -279,6 +279,7 @@ const USER_PROPS: Record<string, any> = {
   Codigo: { rich_text: {} },
   Password: { rich_text: {} },
   Activo: { checkbox: {} },
+  Jornada: { number: {} },
 };
 const LOG_PROPS: Record<string, any> = {
   Fecha: { date: {} },
@@ -309,6 +310,12 @@ const APP_DBS: Record<AppDb, { env: string; title: string; titleProp: string; pr
       Para: { rich_text: {} },
       Activo: { checkbox: {} },
     },
+  },
+  ajustes: {
+    env: "NOTION_AJUSTES_DB_ID",
+    title: "BUT Calls · Ajustes de usuario",
+    titleProp: "Usuario",
+    props: { Plantillas: { rich_text: {} } },
   },
   locks: {
     env: "NOTION_LOCKS_DB_ID",
@@ -419,6 +426,7 @@ function toUser(page: any, s: Record<string, { name: string; type: string }>): S
     code: String(get("codigo") ?? "").trim(),
     hash: String(get("password") ?? ""),
     active: get("activo") === true,
+    hours: Number(get("jornada") ?? 0) || 0,
   };
 }
 
@@ -445,6 +453,7 @@ export async function saveUser(id: string | null, u: Partial<StoredUser>): Promi
   if (u.code !== undefined) set("codigo", u.code);
   if (u.hash !== undefined) set("password", u.hash);
   if (u.active !== undefined) set("activo", u.active);
+  if (u.hours !== undefined) set("jornada", u.hours);
   const page = id
     ? await api(`pages/${id}`, "PATCH", { properties: props })
     : await api("pages", "POST", { parent: { database_id: await appDb("users") }, properties: props });
@@ -699,7 +708,7 @@ export async function waAuthors(chatId: string): Promise<Record<string, string>>
 
 /* ---------- Tablas del portal del empleado (fichajes, solicitudes, nóminas) ---------- */
 
-export type PortalTable = "fichajes" | "solicitudes" | "nominas";
+export type PortalTable = "fichajes" | "solicitudes" | "nominas" | "ajustes";
 /** Fila genérica: `id`, `created` y los valores de sus columnas por nombre de propiedad de Notion. */
 export type Row = { id: string; created: string; edited?: string } & Record<string, Value | undefined>;
 

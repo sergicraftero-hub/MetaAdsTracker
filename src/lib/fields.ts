@@ -47,11 +47,17 @@ export const LABELS: Record<FieldKey, string> = {
   estadoContrato: "Estado del contrato",
 };
 
+/** Intentos de llamada sin localizar al lead tras los que se da por perdido */
+export const MAX_ATTEMPTS = 5;
+/** Estado que recibe un lead al agotar los intentos */
+export const LOST_STATE = "PERDIDO";
+
 export type Stage = "nuevo" | "abierto" | "ganado" | "perdido";
 
 const WON = /^FI?R?MADO$/i;
 const LOST = new Set(
   [
+    "PERDIDO",
     "AL FINAL NO",
     "CONTACTADO Y NO INTERESADO",
     "CONTRATO CON OTRA COMPAÑIA",

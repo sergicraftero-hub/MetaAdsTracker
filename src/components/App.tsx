@@ -255,7 +255,7 @@ export default function App() {
         return (
           <div className="overlay top-layer" onClick={(e) => e.target === e.currentTarget && setChatLead(null)}>
             <aside className="sheet chat-sheet" role="dialog" aria-modal="true" aria-label={`WhatsApp con ${String(l.f.nombre ?? "")}`}>
-              <ChatView chat={String(l.f.telefono ?? "")} title={String(l.f.nombre ?? "Lead")} subtitle={String(l.f.telefono ?? "")} onBack={() => setChatLead(null)} toast={toast} />
+              <ChatView chat={String(l.f.telefono ?? "")} title={String(l.f.nombre ?? "Lead")} subtitle={String(l.f.telefono ?? "")} onBack={() => setChatLead(null)} toast={toast} me={data.me.name} />
             </aside>
           </div>
         );

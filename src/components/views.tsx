@@ -61,16 +61,154 @@ export function LeadRow({ lead, data, actions, meta, showOwner, selected, onSele
 
 const callbackTime = (l: Lead) => parseWhen(l.f.rellamada)?.date.getTime() ?? Infinity;
 
-/** Agenda de rellamadas de todo el equipo, agrupada por día. */
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const keyOf = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const hhmm = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+/** Calendario mensual de rellamadas: se ve qué hay cada día y se arrastra una rellamada para cambiarla de día. */
+function AgendaCalendar({ list, data, actions }: Props & { list: Lead[] }) {
+  const today = keyOf(new Date());
+  const [month, setMonth] = useState(today.slice(0, 7));
+  const [day, setDay] = useState(today);
+  const [over, setOver] = useState<string | null>(null);
+
+  const byDay = useMemo(() => {
+    const m = new Map<string, Lead[]>();
+    for (const l of list) {
+      const w = parseWhen(l.f.rellamada);
+      if (!w) continue;
+      const k = keyOf(w.date);
+      m.set(k, [...(m.get(k) ?? []), l]);
+    }
+    return m;
+  }, [list]);
+
+  const days = useMemo(() => {
+    const first = new Date(`${month}-01T12:00:00`);
+    const start = new Date(first);
+    start.setDate(1 - ((first.getDay() + 6) % 7));
+    return Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return { key: keyOf(d), n: d.getDate(), inMonth: keyOf(d).startsWith(month), weekend: d.getDay() === 0 || d.getDay() === 6 };
+    });
+  }, [month]);
+
+  const move = (by: number) => {
+    const d = new Date(`${month}-01T12:00:00`);
+    d.setMonth(d.getMonth() + by);
+    setMonth(keyOf(d).slice(0, 7));
+  };
+
+  /** Cambia la rellamada de día conservando su hora. */
+  function reschedule(id: string, to: string) {
+    const lead = list.find((l) => l.id === id);
+    const w = lead && parseWhen(lead.f.rellamada);
+    if (!lead || !w || keyOf(w.date) === to) return;
+    actions.save(id, { rellamada: w.hasTime ? new Date(`${to}T${hhmm(w.date)}:00`).toISOString() : to });
+  }
+
+  const late = list.filter((l) => {
+    const w = parseWhen(l.f.rellamada);
+    return !!w && keyOf(w.date) < today;
+  }).length;
+  const selected = byDay.get(day) ?? [];
+
+  return (
+    <>
+      <section className="card">
+        <div className="between">
+          <div className="month-nav">
+            <button className="btn small" onClick={() => move(-1)} aria-label="Mes anterior">←</button>
+            <strong className="cap">{new Date(`${month}-01T12:00:00`).toLocaleDateString("es-ES", { month: "long", year: "numeric" })}</strong>
+            <button className="btn small" onClick={() => move(1)} aria-label="Mes siguiente">→</button>
+          </div>
+          <button className="btn small" onClick={() => { setMonth(today.slice(0, 7)); setDay(today); }}>Hoy</button>
+        </div>
+        <p className="muted hint">
+          {late > 0 ? `${late} rellamadas atrasadas de días anteriores. ` : ""}Toca un día para ver sus rellamadas. En ordenador, arrastra una a otro día para moverla.
+        </p>
+        <div className="cal agenda-cal" role="grid">
+          {["L", "M", "X", "J", "V", "S", "D"].map((d) => <span key={d} className="cal-head">{d}</span>)}
+          {days.map((d) => {
+            const items = byDay.get(d.key) ?? [];
+            const past = d.key < today;
+            return (
+              <div
+                key={d.key}
+                role="gridcell"
+                tabIndex={0}
+                className={["cal-day", d.inMonth ? "" : "out", d.weekend ? "weekend" : "", d.key === day ? "sel" : "", d.key === today ? "today" : "", over === d.key ? "over" : ""].join(" ")}
+                onClick={() => setDay(d.key)}
+                onKeyDown={(e) => e.key === "Enter" && setDay(d.key)}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setOver(d.key);
+                }}
+                onDragLeave={() => setOver(null)}
+                onDrop={(e) => {
+                  setOver(null);
+                  reschedule(e.dataTransfer.getData("text/plain"), d.key);
+                }}
+              >
+                <span className="cal-num">
+                  {d.n}
+                  {items.length > 0 && <i className={past ? "cal-count late" : "cal-count"}>{items.length}</i>}
+                </span>
+                <span className="cal-marks">
+                  {items.slice(0, 3).map((l) => {
+                    const w = parseWhen(l.f.rellamada);
+                    return (
+                      <i
+                        key={l.id}
+                        className={past ? "chip c-red" : "chip c-blue"}
+                        draggable
+                        onDragStart={(e) => e.dataTransfer.setData("text/plain", l.id)}
+                        title={`${str(l.f.nombre)}${str(l.f.comercial) ? ` · ${str(l.f.comercial)}` : ""}`}
+                      >
+                        {w?.hasTime ? `${hhmm(w.date)} ` : ""}
+                        {str(l.f.nombre).split(" ")[0]}
+                      </i>
+                    );
+                  })}
+                  {items.length > 3 && <i className="chip">+{items.length - 3}</i>}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+      <section className="card">
+        <h2>
+          <span className="cap">{day === today ? "Hoy" : new Date(`${day}T12:00:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}</span>{" "}
+          <span className="count">{selected.length}</span>
+        </h2>
+        {selected.length === 0 ? (
+          <p className="muted empty-line">Sin rellamadas este día.</p>
+        ) : (
+          <ul className="rows">
+            {selected.map((l) => <LeadRow key={l.id} lead={l} data={data} actions={actions} meta="rellamada" showOwner />)}
+          </ul>
+        )}
+        <p className="muted hint">Para cambiar el día o la hora de una rellamada, abre el lead y edítala en su ficha.</p>
+      </section>
+    </>
+  );
+}
+
+/** Agenda de rellamadas de todo el equipo: en calendario o en lista por día. */
 export function Agenda({ data, actions }: Props) {
   const hasCode = !!data.me.code;
   const [scope, setScope] = useState<"mias" | "todas">(hasCode ? "mias" : "todas");
-  const groups = useMemo(() => {
+  const [view, setView] = useState<"calendario" | "lista">("calendario");
+  const list = useMemo(() => {
     const code = data.me.code.trim().toLowerCase();
-    const list = data.leads
+    return data.leads
       .filter((l) => l.f.rellamada && !isClosed(l.f.estado))
       .filter((l) => scope === "todas" || str(l.f.comercial).trim().toLowerCase() === code)
       .sort((a, b) => callbackTime(a) - callbackTime(b));
+  }, [data.leads, data.me.code, scope]);
+  const groups = useMemo(() => {
     const out: { key: string; title: string; late: boolean; leads: Lead[] }[] = [];
     for (const l of list) {
       const w = parseWhen(l.f.rellamada);
@@ -90,34 +228,37 @@ export function Agenda({ data, actions }: Props) {
       else out.push({ key, title, late: diff < 0, leads: [l] });
     }
     return out;
-  }, [data.leads, data.me.code, scope]);
+  }, [list]);
 
   return (
     <div className="stack">
       <div className="filters">
+        <div className="seg" role="group" aria-label="Cómo ver la agenda">
+          <button className={view === "calendario" ? "active" : ""} onClick={() => setView("calendario")}>Calendario</button>
+          <button className={view === "lista" ? "active" : ""} onClick={() => setView("lista")}>Lista</button>
+        </div>
         {hasCode && (
           <div className="seg" role="group" aria-label="De quién son las rellamadas">
             <button className={scope === "mias" ? "active" : ""} onClick={() => setScope("mias")}>Mías</button>
             <button className={scope === "todas" ? "active" : ""} onClick={() => setScope("todas")}>Todo el equipo</button>
           </div>
         )}
-        <p className="muted hint agenda-note">
-          Las rellamadas son de todo el equipo: si a su hora el comercial no está, se la puede hacer quien esté de turno.
-        </p>
       </div>
-      {groups.length === 0 && <section className="card"><p className="muted empty-line">No hay rellamadas programadas.</p></section>}
-      {groups.map((g) => (
-        <section className="card" key={g.key}>
-          <h2 className={g.late ? "due" : ""}>
-            <span className="cap">{g.title}</span> <span className="count">{g.leads.length}</span>
-          </h2>
-          <ul className="rows">
-            {g.leads.slice(0, g.late ? 100 : 200).map((l) => (
-              <LeadRow key={l.id} lead={l} data={data} actions={actions} meta="rellamada" showOwner />
-            ))}
-          </ul>
-        </section>
-      ))}
+      {view === "calendario" && <AgendaCalendar list={list} data={data} actions={actions} />}
+      {view === "lista" && groups.length === 0 && <section className="card"><p className="muted empty-line">No hay rellamadas programadas.</p></section>}
+      {view === "lista" &&
+        groups.map((g) => (
+          <section className="card" key={g.key}>
+            <h2 className={g.late ? "due" : ""}>
+              <span className="cap">{g.title}</span> <span className="count">{g.leads.length}</span>
+            </h2>
+            <ul className="rows">
+              {g.leads.slice(0, 200).map((l) => (
+                <LeadRow key={l.id} lead={l} data={data} actions={actions} meta="rellamada" showOwner />
+              ))}
+            </ul>
+          </section>
+        ))}
     </div>
   );
 }

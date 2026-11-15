@@ -13,7 +13,7 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
   const [users, setUsers] = useState<User[] | null>(null);
   const [configured, setConfigured] = useState(true);
   const [status, setStatus] = useState<Status | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", role: "comercial", code: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", role: "comercial", code: "", password: "", hours: "8" });
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -37,7 +37,7 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
     setBusy(true);
     try {
       await api("/api/users", "POST", form);
-      setForm({ name: "", email: "", role: "comercial", code: "", password: "" });
+      setForm({ name: "", email: "", role: "comercial", code: "", password: "", hours: "8" });
       toast("Usuario creado");
       await load();
     } catch (err) {
@@ -80,6 +80,7 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
                     <th>Email</th>
                     <th>Rol</th>
                     <th>Código</th>
+                    <th>Jornada</th>
                     <th>Acceso</th>
                     <th></th>
                   </tr>
@@ -91,6 +92,7 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
                       <td>{u.email}</td>
                       <td>{u.role === "admin" ? "Dirección" : "Comercial"}</td>
                       <td>{u.code || "—"}</td>
+                      <td>{u.hours ? `${String(u.hours).replace(".", ",")} h` : "—"}</td>
                       <td>{u.active ? "Activo" : "Desactivado"}</td>
                       <td className="cell-actions">
                         <button
@@ -101,7 +103,9 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
                             const code = window.prompt("Código en la columna COMERCIAL (vacío si no llama)", u.code);
                             if (code === null) return;
                             const admin = window.confirm(`¿${name || u.name} es de dirección (ve todo)?\n\nAceptar = Dirección · Cancelar = Comercial`);
-                            patch(u.id, { name, code, role: admin ? "admin" : "comercial" }, "Usuario actualizado");
+                            const hours = window.prompt("Horas de jornada al día (0 = sin límite)", String(u.hours ?? 0));
+                            if (hours === null) return;
+                            patch(u.id, { name, code, hours, role: admin ? "admin" : "comercial" }, "Usuario actualizado");
                           }}
                         >
                           Editar
@@ -123,7 +127,7 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
                   ))}
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="muted">Todavía no hay usuarios.</td>
+                      <td colSpan={7} className="muted">Todavía no hay usuarios.</td>
                     </tr>
                   )}
                 </tbody>
@@ -152,6 +156,10 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
                   Código en la columna COMERCIAL
                   <input list="codes" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="p. ej. AYA" />
                   <datalist id="codes">{data.comerciales.map((c) => <option key={c} value={c} />)}</datalist>
+                </label>
+                <label>
+                  Horas de jornada al día (0 = sin límite)
+                  <input type="number" min={0} max={16} step={0.5} value={form.hours} onChange={(e) => setForm({ ...form, hours: e.target.value })} />
                 </label>
                 <label>
                   Contraseña inicial

@@ -1,4 +1,4 @@
-import type { Lead, Value } from "@/lib/types";
+import type { Lead, LeadsPayload, Value } from "@/lib/types";
 
 export async function api<T>(path: string, method = "GET", body?: unknown): Promise<T> {
   let res: Response;
@@ -98,4 +98,18 @@ export function matches(l: Lead, q: string): boolean {
     .toLowerCase()
     .split(/\s+/)
     .every((w) => hay.includes(w));
+}
+
+/** Minutos de aviso antes de que acabe la jornada: a partir de ahí no se dan más llamadas. */
+export const SHIFT_WARN_MS = 5 * 60_000;
+
+/**
+ * Milisegundos que le quedan de jornada a quien usa la app (negativo si ya la ha cumplido).
+ * null si no ha fichado o dirección no le ha puesto horas.
+ */
+export function shiftRemaining(clock: LeadsPayload["clock"], now = Date.now()): number | null {
+  if (!clock || !clock.hours) return null;
+  const breaks = clock.breaks.reduce((a, b) => a + Math.max(0, (b.e ? new Date(b.e).getTime() : now) - new Date(b.s).getTime()), 0);
+  const worked = Math.max(0, now - new Date(clock.start).getTime() - breaks);
+  return clock.hours * 3600_000 - worked;
 }
