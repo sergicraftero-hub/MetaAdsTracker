@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { isClosed } from "@/lib/fields";
 import type { Leave, LeadsPayload, Payslip, Person, Shift } from "@/lib/types";
+import PushSetup from "./PushSetup";
 import { SHIFT_WARN_MS, api, dayKey, shiftRemaining } from "./util";
 
 type Toast = (m: string, e?: boolean) => void;
@@ -702,6 +703,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
         <div className="card bell-panel" role="dialog" aria-label="Avisos">
           <h2>Avisos</h2>
           {empty && <p className="muted hint">No tienes avisos.</p>}
+          <PushSetup toast={toast} />
           <ul className="bonus-admin">
             {ending && (
               <li>

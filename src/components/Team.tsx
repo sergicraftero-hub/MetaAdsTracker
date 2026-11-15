@@ -15,6 +15,7 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
   const [status, setStatus] = useState<Status | null>(null);
   const [form, setForm] = useState({ name: "", email: "", role: "comercial", code: "", password: "", hours: "8" });
   const [busy, setBusy] = useState(false);
+  const [cron, setCron] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -173,6 +174,25 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
       </section>
 
       <BonusAdmin data={data} people={(users ?? []).filter((u) => u.active).map((u) => u.code || u.name)} toast={toast} />
+
+      <section className="card">
+        <h2>Notificaciones push</h2>
+        <p className="muted hint">
+          Cada persona las activa en su móvil desde la campana. Para que salgan a su hora, un servicio externo tiene que llamar a esta dirección
+          cada minuto (el plan gratuito de Vercel no puede hacerlo solo). Crea una cuenta gratis en cron-job.org, añade un «cronjob» con esta
+          dirección y ponlo a ejecutarse cada minuto. No la compartas: quien la tenga puede lanzar la comprobación.
+        </p>
+        {cron ? (
+          <div className="cron">
+            <code>{cron}</code>
+            <button className="btn small" onClick={() => navigator.clipboard.writeText(cron).then(() => toast("Dirección copiada"))}>Copiar</button>
+          </div>
+        ) : (
+          <button className="btn small" onClick={() => api<{ url: string }>("/api/push/test").then((r) => setCron(r.url)).catch((e) => toast((e as Error).message, true))}>
+            Mostrar la dirección
+          </button>
+        )}
+      </section>
 
       <section className="card">
         <h2>Conexión con Notion</h2>

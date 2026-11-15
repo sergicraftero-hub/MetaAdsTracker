@@ -462,3 +462,8 @@ button.guide:hover { background: var(--surface-2); }
 .calllist .filters select { flex: 0 1 240px; }
 td.left { text-align: left; }
 .inline-link { padding: 0; font-weight: 600; color: var(--text); }
+
+/* ---------- Notificaciones push ---------- */
+.push-box { display: grid; gap: 6px; justify-items: start; background: var(--surface-2); border-radius: 10px; padding: 10px 12px; margin: 8px 0; font-size: 14px; }
+.cron { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cron code { overflow-wrap: anywhere; flex: 1 1 260px; padding: 6px 8px; }
