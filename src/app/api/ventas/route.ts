@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { HttpError, handle, requireSession } from "@/lib/auth";
-import { PRODUCT } from "@/lib/catalog";
 import { visibleLead } from "@/lib/leadRules";
 import { aliasOf, allSales, catalogFor, commissionFor, forSeller, monthOf, realOf, summarize, toSale, todayMadrid } from "@/lib/sales";
 import { store } from "@/lib/store";
@@ -13,8 +12,9 @@ export const GET = handle(async (req: Request) => {
   await requireSession(true);
   const month = new URL(req.url).searchParams.get("mes") ?? todayMadrid().slice(0, 7);
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new HttpError(400, "Mes no válido");
-  const [{ codes, sales, ignored }, options] = await Promise.all([allSales(), store.segOptions()]);
-  const summary = summarize(codes, sales, month);
+  const [{ codes, sales, ignored, cat }, options] = await Promise.all([allSales(), store.segOptions()]);
+  const PRODUCT = cat.byId;
+  const summary = summarize(codes, sales, month, cat);
   const ofMonth = sales.filter((s) => monthOf(s.date) === month);
   // Por comercial: cuántas ventas cuentan para objetivos (fibra de primera residencia) y cuáles no
   const sellers = new Map<string, { name: string; sales: number; fibers: number; lines: number; second: number; commission: number }>();
@@ -55,7 +55,7 @@ export const GET = handle(async (req: Request) => {
       lots: summary.reduce((a, c) => a + c.lots, 0),
       quarter: summary.reduce((a, c) => a + c.quarter, 0),
     },
-    catalog: catalogFor(true),
+    catalog: catalogFor(cat, true),
     codes: codes.map((real) => ({ alias: aliasOf(real, codes), real })),
     estados: options.estados,
     ignored,
@@ -71,12 +71,12 @@ export const POST = handle(async (req: Request) => {
   const leadId = get("leadId");
   const lead = leadId ? await visibleLead(me, leadId) : null;
 
+  const { codes, sales, cat } = await allSales();
   let products: string[] = [];
   try {
-    products = (JSON.parse(get("products") || "[]") as unknown[]).filter((x): x is string => typeof x === "string" && PRODUCT.has(x)).slice(0, 12);
+    products = (JSON.parse(get("products") || "[]") as unknown[]).filter((x): x is string => typeof x === "string" && cat.byId.has(x)).slice(0, 12);
   } catch {}
   if (!products.length) throw new HttpError(400, "Añade al menos un producto");
-  const { codes, sales } = await allSales();
   const real = realOf(get("code"), codes);
   if (!real) throw new HttpError(400, "Elige el código en el que se carga la venta");
   if (leadId && sales.some((s) => s.leadId === leadId && !s.baja)) throw new HttpError(409, "Este lead ya tiene una contratación registrada");
@@ -94,7 +94,7 @@ export const POST = handle(async (req: Request) => {
       fecha: date,
       estado: estados.includes("Pdt cita") ? "Pdt cita" : (estados[0] ?? null),
       codigo: real,
-      comision: commissionFor(products),
+      comision: commissionFor(products, cat),
       productos: JSON.stringify(products),
       origen: get("origin") === "No Movistar" ? "No Movistar" : "Movistar",
       primera: get("primary") === "true",
@@ -104,6 +104,6 @@ export const POST = handle(async (req: Request) => {
     },
     hasFile ? file : undefined,
   );
-  const sale = toSale(row, codes);
+  const sale = toSale(row, codes, cat);
   return NextResponse.json({ sale: me.role === "admin" ? sale : forSeller(sale) });
 });

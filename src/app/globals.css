@@ -671,3 +671,12 @@ tr.is-baja { opacity: 0.55; }
 .barlist.profile li { grid-template-columns: minmax(110px, 230px) 1fr 52px 92px; }
 .profile-conv { text-align: right; }
 @media (max-width: 560px) { .barlist.profile li { grid-template-columns: minmax(90px, 130px) 1fr 46px; } .profile-conv { display: none; } }
+
+/* ---------- Editor del catálogo ---------- */
+.cat-table td { padding: 4px 6px; text-align: left; }
+.cat-table input, .cat-table select { min-height: 34px; padding: 4px 8px; font-size: 14px; }
+.cat-table input[type="number"] { width: 84px; }
+.cat-table input[type="checkbox"] { width: 20px; height: 20px; min-height: 0; }
+.cat-table td:nth-child(2) { min-width: 240px; }
+.tier-row { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 400; }
+.tier-row input { width: 86px; min-height: 34px; padding: 4px 8px; font-size: 14px; }

@@ -1,12 +1,13 @@
 /** Lector de contratos de O2 en PDF: saca los datos de la primera página. Solo servidor. */
 import { extractText, getDocumentProxy } from "unpdf";
-import { CATALOG } from "./catalog";
+import { type Catalog, loadCatalog } from "./catalog";
 import type { ContractData, SaleOrigin } from "./types";
 
 const one = (text: string, re: RegExp) => (text.match(re)?.[1] ?? "").trim();
 
 /** Reconoce el producto principal por lo que dice el contrato (fibra, móvil, tele) y su cuota con IVA. */
-function matchProducts(productText: string, price: number, extras: string): string[] {
+function matchProducts(cat: Catalog, productText: string, price: number, extras: string): string[] {
+  const CATALOG = cat.products.filter((p) => p.active !== false);
   const t = productText.toLowerCase();
   const fiber = /fibra/.test(t);
   const mobile = /l[ií]nea m[oó]vil/.test(t);
@@ -70,6 +71,6 @@ export async function parseContract(file: File): Promise<Omit<ContractData, "cod
     productText,
     price,
     origin,
-    products: matchProducts(productText, price, extras),
+    products: matchProducts(await loadCatalog(), productText, price, extras),
   };
 }

@@ -13,12 +13,12 @@ export const GET = handle(async (req: Request) => {
   const me = await requireSession();
   const admin = me.role === "admin";
   const leadId = new URL(req.url).searchParams.get("lead") ?? "";
-  const { codes, sales } = await allSales();
-  const summary = summarize(codes, sales, todayMadrid().slice(0, 7));
+  const { codes, sales, cat } = await allSales();
+  const summary = summarize(codes, sales, todayMadrid().slice(0, 7), cat);
   const rec = { Movistar: recommend(summary, "Movistar"), "No Movistar": recommend(summary, "No Movistar") };
   const existing = leadId ? sales.find((s) => s.leadId === leadId && !s.baja) : undefined;
   return NextResponse.json({
-    catalog: catalogFor(admin),
+    catalog: catalogFor(cat, admin),
     codes: codes.map((real) => aliasOf(real, codes)),
     // Al comercial solo se le dice qué código; el porqué lleva importes y es para dirección
     recommended: { Movistar: rec.Movistar.code, "No Movistar": rec["No Movistar"].code },

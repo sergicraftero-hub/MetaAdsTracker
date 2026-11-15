@@ -4,7 +4,7 @@ import { isClosed, stageOf } from "@/lib/fields";
 import type { CallLog, Lead, LeadsPayload } from "@/lib/types";
 import Activity from "./Activity";
 import { BonusCards } from "./Bonuses";
-import { api, dayKey, entryTime, isDue, pretty, str } from "./util";
+import { api, dayKey, entryTime, isDue, parseWhen, pretty, str } from "./util";
 
 type Range = "7" | "30" | "90" | "365" | "max" | "custom";
 const RANGES: [Range, string][] = [
@@ -95,6 +95,84 @@ function Breakdown({ title, groups, folded }: { title: string; groups: Map<strin
   );
 }
 
+
+/** Momento de la primera llamada a un lead, a partir de «1ER_INTENTO» (y «FECHA_CONTACTO» si solo trae la hora). */
+function firstCallTime(l: Lead): number | null {
+  const entry = entryTime(l);
+  const a = str(l.f.intento1).trim();
+  if (!entry || !a) return null;
+  let m = a.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  if (m) {
+    const y = new Date(entry).getFullYear();
+    let d = new Date(y, Number(m[2]) - 1, Number(m[1]), Number(m[3]), Number(m[4]));
+    if (d.getTime() < entry - 86400_000) d = new Date(y + 1, Number(m[2]) - 1, Number(m[1]), Number(m[3]), Number(m[4]));
+    return d.getTime();
+  }
+  m = a.match(/^(\d{1,2}):(\d{2})$/);
+  const day = parseWhen(l.f.fechaContacto)?.date;
+  if (m && day) return new Date(day.getFullYear(), day.getMonth(), day.getDate(), Number(m[1]), Number(m[2])).getTime();
+  return null;
+}
+
+const span = (ms: number) => {
+  const min = Math.round(ms / 60_000);
+  if (min < 60) return `${min} min`;
+  if (min < 48 * 60) return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")} min`;
+  return `${Math.round(min / 1440)} días`;
+};
+const median = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : NaN;
+};
+
+/** Velocidad de respuesta: cuánto se tarda desde que entra el lead hasta la primera llamada. */
+function ResponseSpeed({ leads, showSellers }: { leads: Lead[]; showSellers: boolean }) {
+  const rows = leads
+    .map((l) => ({ l, first: firstCallTime(l) }))
+    .filter((x): x is { l: Lead; first: number } => x.first !== null && x.first - entryTime(x.l) > -5 * 60_000)
+    .map((x) => ({ who: str(x.l.f.comercial) || NOBODY, ms: Math.max(0, x.first - entryTime(x.l)) }));
+  const waiting = leads.filter((l) => !l.f.estado && !l.f.intento1 && !l.f.fechaContacto);
+  const oldest = waiting.length ? Date.now() - Math.min(...waiting.map(entryTime)) : 0;
+  const within = (ms: number) => rows.filter((r) => r.ms <= ms).length;
+  const groups = new Map<string, number[]>();
+  for (const r of rows) groups.set(r.who, [...(groups.get(r.who) ?? []), r.ms]);
+  const bySeller = [...groups.entries()]
+    .map(([who, ms]) => ({ who, n: ms.length, med: median(ms), fast: ms.filter((x) => x <= 3600_000).length }))
+    .sort((a, b) => a.med - b.med);
+
+  return (
+    <section className="card">
+      <h2>Velocidad de respuesta</h2>
+      <p className="muted hint">Tiempo desde que entra el lead hasta la primera llamada. Los leads que entran de noche o en festivo alargan la media, por eso se usa la mediana.</p>
+      {rows.length === 0 ? (
+        <p className="muted empty-line">Aún no hay leads llamados en este periodo con la hora de la primera llamada.</p>
+      ) : (
+        <div className="tiles inner-tiles">
+          <div className="tile"><span className="tile-label">Tiempo habitual (mediana)</span><span className="tile-value">{span(median(rows.map((r) => r.ms)))}</span><span className="muted tile-sub">{rows.length} leads medidos</span></div>
+          <div className="tile"><span className="tile-label">En menos de 5 min</span><span className="tile-value">{pct(within(5 * 60_000), rows.length)}</span></div>
+          <div className="tile"><span className="tile-label">En menos de 1 hora</span><span className="tile-value">{pct(within(3600_000), rows.length)}</span></div>
+          <div className="tile"><span className="tile-label">En el mismo día (24 h)</span><span className="tile-value">{pct(within(86400_000), rows.length)}</span></div>
+          <div className="tile"><span className="tile-label">Esperando la primera llamada</span><span className="tile-value">{waiting.length}</span><span className="muted tile-sub">{waiting.length ? `el más antiguo, hace ${span(oldest)}` : "ninguno"}</span></div>
+        </div>
+      )}
+      {showSellers && bySeller.length > 1 && (
+        <details>
+          <summary>Ver por comercial</summary>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Comercial</th><th>Leads medidos</th><th>Tiempo habitual</th><th>En menos de 1 h</th></tr></thead>
+              <tbody>
+                {bySeller.map((r) => (
+                  <tr key={r.who}><th scope="row">{r.who}</th><td>{r.n}</td><td>{span(r.med)}</td><td>{pct(r.fast, r.n)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+    </section>
+  );
+}
 
 const PROFILE: [key: "compania" | "cuantoPaga" | "quiereTele" | "titular", label: string][] = [
   ["compania", "Compañía actual"],
@@ -313,6 +391,8 @@ function ManagerDashboard({ data, onOpenLead }: { data: LeadsPayload; onOpenLead
         <Tile label="En curso" value={nOpen} sub={`${overdue} con rellamada atrasada o de hoy`} />
         <Tile label="Descartados" value={nLost} sub={`${pct(nLost, leads.length)} de los leads`} />
       </div>
+
+      <ResponseSpeed leads={leads} showSellers={admin} />
 
       <section className="card">
         <h2>Leads y firmados por {chart.unit}</h2>

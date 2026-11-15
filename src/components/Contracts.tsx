@@ -264,6 +264,8 @@ export default function Contracts({ toast }: { data: LeadsPayload; toast: Toast 
         </div>
       </section>
 
+      <CatalogEditor toast={toast} onSaved={load} />
+
       {edit && (
         <div className="overlay centered" onClick={(e) => e.target === e.currentTarget && setEdit(null)}>
           <div className="card modal wide" role="dialog" aria-modal="true" aria-label="Editar contratación">
@@ -361,5 +363,142 @@ export default function Contracts({ toast }: { data: LeadsPayload; toast: Toast 
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------- Catálogo editable: productos, comisiones y tramos de extracomisión ---------- */
+
+interface CatProduct {
+  id: string;
+  family: string;
+  name: string;
+  price: number;
+  commission: number;
+  baf: boolean;
+  active?: boolean;
+}
+type Tier = [number, number];
+interface Cat {
+  products: CatProduct[];
+  lots: Tier[];
+  quarter: Tier[];
+  custom: boolean;
+  families: string[];
+}
+
+function Tiers({ title, hint, tiers, onChange }: { title: string; hint: string; tiers: Tier[]; onChange: (t: Tier[]) => void }) {
+  return (
+    <div className="field">
+      <span className="label">{title}</span>
+      <span className="muted hint">{hint}</span>
+      {tiers.map((t, i) => (
+        <div key={i} className="tier-row">
+          <span className="muted">Desde</span>
+          <input type="number" min={1} value={t[0]} aria-label="Fibras" onChange={(e) => onChange(tiers.map((x, k) => (k === i ? [Number(e.target.value), x[1]] : x)))} />
+          <span className="muted">fibras</span>
+          <input type="number" min={0} value={t[1]} aria-label="Importe" onChange={(e) => onChange(tiers.map((x, k) => (k === i ? [x[0], Number(e.target.value)] : x)))} />
+          <span className="muted">€</span>
+          <button type="button" className="btn small" aria-label="Quitar tramo" onClick={() => onChange(tiers.filter((_, k) => k !== i))}><Icon name="x" size={14} /></button>
+        </div>
+      ))}
+      <button type="button" className="btn small" onClick={() => onChange([...tiers, [(tiers[tiers.length - 1]?.[0] ?? 0) + 1, 0]])}>+ Añadir tramo</button>
+    </div>
+  );
+}
+
+function CatalogEditor({ toast, onSaved }: { toast: Toast; onSaved: () => void }) {
+  const dlg = useDialogs();
+  const [cat, setCat] = useState<Cat | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const open = async () => {
+    if (cat) return;
+    try {
+      setCat(await api<Cat>("/api/ventas/catalogo"));
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+  };
+  const change = (next: Partial<Cat>) => {
+    if (!cat) return;
+    setCat({ ...cat, ...next });
+    setDirty(true);
+  };
+  const setProduct = (i: number, patch: Partial<CatProduct>) => cat && change({ products: cat.products.map((p, k) => (k === i ? { ...p, ...patch } : p)) });
+
+  async function save() {
+    if (!cat) return;
+    setBusy(true);
+    try {
+      setCat(await api<Cat>("/api/ventas/catalogo", "PUT", cat));
+      setDirty(false);
+      toast("Catálogo guardado");
+      onSaved();
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+    setBusy(false);
+  }
+  async function reset() {
+    if (!(await dlg.confirm({ title: "¿Volver al catálogo de partida?", text: "Se pierden los cambios hechos en productos, comisiones y tramos.", ok: "Restaurar", danger: true }))) return;
+    try {
+      setCat(await api<Cat>("/api/ventas/catalogo", "DELETE"));
+      setDirty(false);
+      toast("Catálogo restaurado");
+      onSaved();
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+  }
+
+  return (
+    <details className="card fold" onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && open()}>
+      <summary>Catálogo y comisiones</summary>
+      {!cat ? (
+        <p className="muted">Cargando…</p>
+      ) : (
+        <div className="stack">
+          <p className="muted hint">
+            Aquí se cambian los productos, lo que os paga O2 por cada uno y los tramos de los rápeles. Las ventas ya registradas conservan la comisión
+            que tenían. Un producto desactivado deja de ofrecerse, pero se sigue viendo en las ventas antiguas.
+          </p>
+          <div className="table-wrap">
+            <table className="cat-table">
+              <thead>
+                <tr><th>Familia</th><th>Producto</th><th>Cuota €</th><th>Comisión €</th><th>Cuenta como fibra</th><th>Activo</th></tr>
+              </thead>
+              <tbody>
+                {cat.products.map((p, i) => (
+                  <tr key={p.id} className={p.active === false ? "is-baja" : ""}>
+                    <td>
+                      <select value={p.family} aria-label="Familia" onChange={(e) => setProduct(i, { family: e.target.value })}>
+                        {cat.families.map((f) => <option key={f}>{f}</option>)}
+                      </select>
+                    </td>
+                    <td><input value={p.name} aria-label="Nombre del producto" onChange={(e) => setProduct(i, { name: e.target.value })} /></td>
+                    <td><input type="number" min={0} value={p.price} aria-label="Cuota" onChange={(e) => setProduct(i, { price: Number(e.target.value) })} /></td>
+                    <td><input type="number" min={0} value={p.commission} aria-label="Comisión" onChange={(e) => setProduct(i, { commission: Number(e.target.value) })} /></td>
+                    <td><input type="checkbox" checked={p.baf} aria-label="Cuenta como fibra" onChange={(e) => setProduct(i, { baf: e.target.checked })} /></td>
+                    <td><input type="checkbox" checked={p.active !== false} aria-label="Activo" onChange={(e) => setProduct(i, { active: e.target.checked })} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" className="btn small" onClick={() => change({ products: [...cat.products, { id: "", family: cat.families[0], name: "Producto nuevo", price: 0, commission: 0, baf: false, active: true }] })}>
+            + Añadir producto
+          </button>
+          <div className="grid2">
+            <Tiers title="Rápel por lotes (por código y mes)" hint="Importe total que se cobra al llegar a ese número de fibras." tiers={cat.lots} onChange={(lots) => change({ lots })} />
+            <Tiers title="Rápel trimestral (por código, sin origen Movistar)" hint="Importe total del trimestre al llegar a ese número de fibras." tiers={cat.quarter} onChange={(quarter) => change({ quarter })} />
+          </div>
+          <div className="quick">
+            <button className="btn primary" disabled={busy || !dirty} onClick={save}>{busy ? "Guardando…" : "Guardar catálogo"}</button>
+            {cat.custom && <button className="btn" onClick={reset}>Restaurar el de partida</button>}
+          </div>
+        </div>
+      )}
+    </details>
   );
 }

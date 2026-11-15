@@ -1,5 +1,5 @@
 /** Contrataciones («Seguimiento O2»): comisiones por venta y extracomisiones por código. Solo servidor. */
-import { CATALOG, LOT_TIERS, PRODUCT, QUARTER_TIERS } from "./catalog";
+import { type Catalog, type Tier, loadCatalog } from "./catalog";
 import type { SegRow } from "./notion";
 import { store } from "./store";
 import type { Product, Sale, SaleOrigin } from "./types";
@@ -17,7 +17,7 @@ export const realOf = (alias: string, codes: string[]) => codes[Number(alias.rep
 
 /* ---------- Fila de Notion → contratación ---------- */
 
-export function toSale(r: SegRow, codes: string[]): Sale & { paid: boolean; commission: number; baf: boolean; realCode: string; fiber: boolean } {
+export function toSale(r: SegRow, codes: string[], cat: Catalog): Sale & { paid: boolean; commission: number; baf: boolean; realCode: string; fiber: boolean } {
   let products: string[] = [];
   try {
     const list = JSON.parse(str(r.productos) || "[]");
@@ -30,7 +30,10 @@ export function toSale(r: SegRow, codes: string[]): Sale & { paid: boolean; comm
   // Las antiguas tampoco dicen si es primera residencia ni qué productos: se cuentan como fibra de primera residencia
   const legacy = !products.length && r.primera !== true && !str(r.origen);
   const primary = r.primera === true || legacy;
-  const hasFiber = products.length ? products.some((id) => PRODUCT.get(id)?.baf) : true;
+  const commission = Number(r.comision ?? 0) || 0;
+  // Una venta antigua sin detallar se da por fibra salvo que su comisión sea menor que la de la fibra más barata
+  const cheapestFiber = Math.min(...cat.products.filter((p) => p.baf).map((p) => p.commission), Infinity);
+  const hasFiber = products.length ? products.some((id) => cat.byId.get(id)?.baf) : commission >= cheapestFiber;
   const realCode = str(r.codigo);
   return {
     id: r.id,
@@ -53,7 +56,7 @@ export function toSale(r: SegRow, codes: string[]): Sale & { paid: boolean; comm
     contract: str(r.contrato),
     paid: r.cobrado === true,
     // Una baja no cobra ni cuenta
-    commission: baja ? 0 : Number(r.comision ?? 0) || 0,
+    commission: baja ? 0 : commission,
     baf: !baja && primary && hasFiber,
     fiber: hasFiber,
   };
@@ -66,10 +69,11 @@ export function forSeller(s: Sale): Sale {
   return rest;
 }
 
-export const commissionFor = (products: string[]) => products.reduce((a, id) => a + (PRODUCT.get(id)?.commission ?? 0), 0);
+export const commissionFor = (products: string[], cat: Catalog) => products.reduce((a, id) => a + (cat.byId.get(id)?.commission ?? 0), 0);
 
 /** Catálogo para el navegador: con comisión solo para dirección. */
-export const catalogFor = (admin: boolean): Product[] => CATALOG.map(({ commission, ...p }) => (admin ? { ...p, commission } : p));
+export const catalogFor = (cat: Catalog, admin: boolean): Product[] =>
+  cat.products.filter((p) => admin || p.active !== false).map(({ commission, active: _a, ...p }) => (admin ? { ...p, commission } : p));
 
 /**
  * Filas de «Seguimiento O2» que no son una venta sino un bono apuntado a mano («BONO 4 FIBRAS»…).
@@ -78,15 +82,15 @@ export const catalogFor = (admin: boolean): Product[] => CATALOG.map(({ commissi
 const isManualBonus = (r: SegRow) => /^\s*bono\b/i.test(str(r.nombre)) && !str(r.codigo) && !str(r.dni);
 
 export async function allSales() {
-  const [{ codigos }, rows] = await Promise.all([store.segOptions(), store.segList()]);
+  const [{ codigos }, rows, cat] = await Promise.all([store.segOptions(), store.segList(), loadCatalog()]);
   const real = rows.filter((r) => !isManualBonus(r));
-  return { codes: codigos, ignored: rows.length - real.length, sales: real.map((r) => toSale(r, codigos)).sort((a, b) => b.date.localeCompare(a.date)) };
+  return { codes: codigos, cat, ignored: rows.length - real.length, sales: real.map((r) => toSale(r, codigos, cat)).sort((a, b) => b.date.localeCompare(a.date)) };
 }
 
 /* ---------- Extracomisiones ---------- */
 
-const tier = (tiers: [number, number][], n: number) => tiers.reduce((a, [min, amount]) => (n >= min ? amount : a), 0);
-const nextTier = (tiers: [number, number][], n: number) => tiers.find(([min]) => n < min) ?? null;
+const tier = (tiers: Tier[], n: number) => tiers.reduce((a, [min, amount]) => (n >= min ? amount : a), 0);
+const nextTier = (tiers: Tier[], n: number) => tiers.find(([min]) => n < min) ?? null;
 
 export const monthOf = (date: string) => date.slice(0, 7);
 export function quarterOf(date: string): string {
@@ -112,7 +116,7 @@ export interface CodeSummary {
 type Full = ReturnType<typeof toSale>;
 
 /** Resumen por código para un mes (lotes) y el trimestre al que pertenece (trimestral). */
-export function summarize(codes: string[], sales: Full[], month: string): CodeSummary[] {
+export function summarize(codes: string[], sales: Full[], month: string, cat: Catalog): CodeSummary[] {
   const q = quarterOf(`${month}-01`);
   const names = [...codes, ...(sales.some((s) => !s.realCode) ? [""] : [])];
   return names.map((real) => {
@@ -120,18 +124,18 @@ export function summarize(codes: string[], sales: Full[], month: string): CodeSu
     const ofMonth = mine.filter((s) => monthOf(s.date) === month);
     const monthBaf = ofMonth.filter((s) => s.baf).length;
     const quarterBaf = mine.filter((s) => quarterOf(s.date) === q && s.baf && s.origin !== "Movistar").length;
-    const ln = nextTier(LOT_TIERS, monthBaf);
-    const qn = nextTier(QUARTER_TIERS, quarterBaf);
+    const ln = nextTier(cat.lots, monthBaf);
+    const qn = nextTier(cat.quarter, quarterBaf);
     // Las ventas sin código no generan extracomisión: no están cargadas en ningún punto de venta
     const counts = !!real;
     return {
       code: real ? aliasOf(real, codes) : "Sin código",
       realCode: real,
       monthBaf,
-      lots: counts ? tier(LOT_TIERS, monthBaf) : 0,
+      lots: counts ? tier(cat.lots, monthBaf) : 0,
       lotsNext: counts && ln ? { need: ln[0] - monthBaf, amount: ln[1] } : null,
       quarterBaf,
-      quarter: counts ? tier(QUARTER_TIERS, quarterBaf) : 0,
+      quarter: counts ? tier(cat.quarter, quarterBaf) : 0,
       quarterNext: counts && qn ? { need: qn[0] - quarterBaf, amount: qn[1] } : null,
       sales: ofMonth.filter((s) => !s.baja).length,
       commission: ofMonth.reduce((a, s) => a + s.commission, 0),

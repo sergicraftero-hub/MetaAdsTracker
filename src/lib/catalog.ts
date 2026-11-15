@@ -1,14 +1,19 @@
 /**
- * Catálogo de O2 con la comisión de cada producto. SOLO SERVIDOR: este archivo no debe importarse
+ * Catálogo de O2 con la comisión de cada producto y los tramos de las extracomisiones. Dirección puede
+ * cambiarlo desde Contrataciones; estos son los valores de partida. SOLO SERVIDOR: este archivo no debe importarse
  * desde ningún componente, para que las comisiones no viajen al navegador de los comerciales.
  */
+import { store } from "./store";
 import type { Product } from "./types";
 
+export type Tier = [min: number, amount: number];
+
 type Row = [id: string, name: string, price: number, commission: number];
-const family = (name: string, baf: boolean, rows: Row[]): (Product & { commission: number })[] =>
+export type CatalogProduct = Product & { commission: number; active?: boolean };
+const family = (name: string, baf: boolean, rows: Row[]): CatalogProduct[] =>
   rows.map(([id, n, price, commission]) => ({ id, family: name, name: n, price, commission, baf }));
 
-export const CATALOG: (Product & { commission: number })[] = [
+export const DEFAULT_PRODUCTS: CatalogProduct[] = [
   ...family("Fibra + fijo + móvil + TV", true, [
     ["ftv-600-35", "600 Mb + 35 GB + M+", 38, 92],
     ["ftv-1g-350", "1 Gb + 350 GB + M+", 50, 115],
@@ -49,13 +54,8 @@ export const CATALOG: (Product & { commission: number })[] = [
   ...family("Extras", false, [["mplus", "Añadir M+ a fibra", 6, 5]]),
 ];
 
-export const PRODUCT = new Map(CATALOG.map((p) => [p.id, p]));
-
-/** Producto con el que se dan por hechas las ventas antiguas (600 Mb + 60 GB + M+ y Netflix, 47 €). */
-export const LEGACY_PRODUCT = "ftv-600-60-n";
-
 /** Extracomisión por lotes: altas de fibra de un código en un mes natural. */
-export const LOT_TIERS: [min: number, amount: number][] = [
+export const DEFAULT_LOTS: Tier[] = [
   [4, 450],
   [11, 1100],
   [15, 1500],
@@ -64,7 +64,90 @@ export const LOT_TIERS: [min: number, amount: number][] = [
   [41, 2600],
 ];
 /** Extracomisión trimestral: altas de fibra que no vienen de Movistar, por código y trimestre natural. */
-export const QUARTER_TIERS: [min: number, amount: number][] = [
+export const DEFAULT_QUARTER: Tier[] = [
   [15, 750],
   [30, 1800],
 ];
+
+/** Familias de producto. Son fijas porque el lector de contratos las usa para reconocer lo contratado. */
+export const FAMILIES = [...new Set(DEFAULT_PRODUCTS.map((p) => p.family))];
+
+export interface Catalog {
+  products: CatalogProduct[];
+  byId: Map<string, CatalogProduct>;
+  lots: Tier[];
+  quarter: Tier[];
+  /** true si dirección ha cambiado los valores de partida */
+  custom: boolean;
+}
+
+const ROW = "__catalogo";
+const g = globalThis as unknown as { __crmCatalog?: { at: number; value: Catalog } };
+
+const build = (products: CatalogProduct[], lots: Tier[], quarter: Tier[], custom: boolean): Catalog => ({
+  products,
+  byId: new Map(products.map((p) => [p.id, p])),
+  lots: [...lots].sort((a, b) => a[0] - b[0]),
+  quarter: [...quarter].sort((a, b) => a[0] - b[0]),
+  custom,
+});
+
+async function row() {
+  const rows = await store.rowsList("ajustes", { property: "Usuario", title: { equals: ROW } });
+  return rows.find((r) => String(r.Usuario) === ROW);
+}
+
+/** Catálogo vigente: el que haya guardado dirección o, si no, el de partida. */
+export async function loadCatalog(): Promise<Catalog> {
+  if (g.__crmCatalog && Date.now() - g.__crmCatalog.at < 60_000) return g.__crmCatalog.value;
+  let value = build(DEFAULT_PRODUCTS, DEFAULT_LOTS, DEFAULT_QUARTER, false);
+  try {
+    const saved = JSON.parse(String((await row())?.Plantillas ?? "null"));
+    if (saved && Array.isArray(saved.products) && saved.products.length) {
+      value = build(saved.products, Array.isArray(saved.lots) ? saved.lots : DEFAULT_LOTS, Array.isArray(saved.quarter) ? saved.quarter : DEFAULT_QUARTER, true);
+    }
+  } catch {
+    // sin portal o sin catálogo guardado: valores de partida
+  }
+  g.__crmCatalog = { at: Date.now(), value };
+  return value;
+}
+
+const cleanTiers = (input: unknown): Tier[] =>
+  (Array.isArray(input) ? input : [])
+    .map((t) => [Math.round(Number(t?.[0])), Math.round(Number(t?.[1]))] as Tier)
+    .filter(([min, amount]) => Number.isFinite(min) && min > 0 && Number.isFinite(amount) && amount >= 0)
+    .slice(0, 12);
+
+/** Guarda el catálogo que envía dirección, validándolo. */
+export async function saveCatalog(input: { products?: unknown; lots?: unknown; quarter?: unknown }): Promise<Catalog> {
+  const seen = new Set<string>();
+  const products: CatalogProduct[] = [];
+  for (const raw of Array.isArray(input.products) ? input.products : []) {
+    const p = raw as Partial<CatalogProduct>;
+    const name = String(p.name ?? "").trim().slice(0, 80);
+    const fam = FAMILIES.includes(String(p.family)) ? String(p.family) : "";
+    if (!name || !fam) continue;
+    let id = String(p.id ?? "").trim().slice(0, 40) || `p-${products.length}-${Date.now().toString(36)}`;
+    while (seen.has(id)) id += "x";
+    seen.add(id);
+    products.push({ id, family: fam, name, price: Math.max(0, Math.round(Number(p.price) || 0)), commission: Math.max(0, Math.round((Number(p.commission) || 0) * 100) / 100), baf: p.baf === true, active: p.active !== false });
+  }
+  if (!products.length) throw new Error("El catálogo no puede quedar vacío");
+  const lots = cleanTiers(input.lots);
+  const quarter = cleanTiers(input.quarter);
+  const json = JSON.stringify({ products, lots, quarter });
+  const cur = await row();
+  if (cur) await store.rowSet("ajustes", cur.id, { Plantillas: json });
+  else await store.rowAdd("ajustes", { Usuario: ROW, Plantillas: json });
+  g.__crmCatalog = undefined;
+  return loadCatalog();
+}
+
+/** Vuelve a los valores de partida (la tabla de O2 con la que se montó la app). */
+export async function resetCatalog(): Promise<Catalog> {
+  const cur = await row();
+  if (cur) await store.rowDel(cur.id);
+  g.__crmCatalog = undefined;
+  return loadCatalog();
+}
