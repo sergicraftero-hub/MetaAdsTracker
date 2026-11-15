@@ -16,7 +16,10 @@ export const GET = handle(async (req: Request) => {
   const { codes, sales, cat } = await allSales();
   const summary = summarize(codes, sales, todayMadrid().slice(0, 7), cat);
   const { extra } = await forecast(summary, todayMadrid().slice(0, 7));
-  const rec = { Movistar: plan(summary, cat, extra, "Movistar"), "No Movistar": plan(summary, cat, extra, "No Movistar") };
+  // El código recomendado sale solo del rápel por lotes (altas del mes): el trimestral no entra,
+  // así que es el mismo código venga o no el cliente de Movistar
+  const lots = plan(summary, cat, extra, "Movistar");
+  const rec = { Movistar: lots, "No Movistar": lots };
   const existing = leadId ? sales.find((s) => s.leadId === leadId && !s.baja) : undefined;
   return NextResponse.json({
     catalog: catalogFor(cat, admin),
