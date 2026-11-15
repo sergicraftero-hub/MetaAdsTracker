@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import type { LeadsPayload, User } from "@/lib/types";
+import { BonusAdmin } from "./Bonuses";
 import { api } from "./util";
 
 interface Status {
@@ -92,6 +93,19 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
                       <td>{u.code || "—"}</td>
                       <td>{u.active ? "Activo" : "Desactivado"}</td>
                       <td className="cell-actions">
+                        <button
+                          className="btn small"
+                          onClick={() => {
+                            const name = window.prompt("Nombre", u.name);
+                            if (name === null) return;
+                            const code = window.prompt("Código en la columna COMERCIAL (vacío si no llama)", u.code);
+                            if (code === null) return;
+                            const admin = window.confirm(`¿${name || u.name} es de dirección (ve todo)?\n\nAceptar = Dirección · Cancelar = Comercial`);
+                            patch(u.id, { name, code, role: admin ? "admin" : "comercial" }, "Usuario actualizado");
+                          }}
+                        >
+                          Editar
+                        </button>
                         <button className="btn small" onClick={() => patch(u.id, { active: !u.active }, u.active ? "Acceso desactivado" : "Acceso activado")}>
                           {u.active ? "Desactivar" : "Activar"}
                         </button>
@@ -149,6 +163,8 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
           </>
         )}
       </section>
+
+      <BonusAdmin data={data} people={(users ?? []).filter((u) => u.active).map((u) => u.code || u.name)} toast={toast} />
 
       <section className="card">
         <h2>Conexión con Notion</h2>

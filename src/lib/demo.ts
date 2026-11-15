@@ -5,7 +5,7 @@
 import { NOTION_NAMES } from "./fields";
 import { hashPassword } from "./password";
 import { FIELD_KEYS } from "./types";
-import type { CallLog, Fields, Lead, Option, Schema, StoredUser } from "./types";
+import type { Bonus, CallAlert, CallLog, Comment, Fields, Lead, Option, Schema, StoredUser } from "./types";
 
 const ESTADOS: Option[] = [
   { name: "RELLAMAR", color: "orange" },
@@ -103,6 +103,9 @@ interface DemoState {
   leads: Map<string, Lead>;
   users: StoredUser[];
   log: CallLog[];
+  comments: Map<string, Comment[]>;
+  alerts: (CallAlert & { to: string; at: number })[];
+  bonuses: Bonus[];
   n: number;
 }
 
@@ -138,6 +141,12 @@ function state(): DemoState {
   return (g.__crmDemo = {
     leads: new Map(leads.map((l) => [l.id, l])),
     log: seedLog(leads),
+    comments: new Map(),
+    alerts: [],
+    bonuses: [
+      { id: "b-1", title: "Reto de la semana", prize: "Desayuno para todo el equipo", metric: "firmados", goal: 25, period: "semana", para: "", active: true },
+      { id: "b-2", title: "Sprint de Ana", prize: "Tarde libre el viernes", metric: "llamadas", goal: 30, period: "dia", para: "ANA", active: true },
+    ],
     users: [
       { id: "u-ana", name: "Ana (comercial demo)", email: "ana@demo.com", role: "comercial", code: "ANA", active: true, hash: hashPassword("demo") },
       { id: "u-luis", name: "Luis (comercial demo)", email: "luis@demo.com", role: "comercial", code: "LUIS", active: true, hash: hashPassword("demo") },
@@ -169,12 +178,40 @@ export const demo = {
     return entry;
   },
   getLog: (from: number) => state().log.filter((e) => new Date(e.at).getTime() >= from),
-  attachContract(id: string, name: string): Lead {
-    const cur = state().leads.get(id);
-    if (!cur) throw new Error("Lead no encontrado");
-    const next = { ...cur, contrato: name };
-    state().leads.set(id, next);
-    return next;
+  listBonuses: () => state().bonuses,
+  saveBonus(id: string | null, b: Partial<Bonus>): Bonus {
+    const st = state();
+    if (id) {
+      const i = st.bonuses.findIndex((x) => x.id === id);
+      if (i < 0) throw new Error("Bono no encontrado");
+      return (st.bonuses[i] = { ...st.bonuses[i], ...b });
+    }
+    const bonus: Bonus = { id: `b-${++st.n}`, title: "", prize: "", metric: "firmados", goal: 1, period: "semana", para: "", active: true, ...b };
+    st.bonuses.push(bonus);
+    return bonus;
+  },
+  deleteBonus(id: string) {
+    const st = state();
+    st.bonuses = st.bonuses.filter((b) => b.id !== id);
+  },
+  addAlert(to: string, a: Omit<CallAlert, "id">) {
+    const st = state();
+    st.alerts.push({ ...a, id: `al-${++st.n}`, to, at: Date.now() });
+    return true;
+  },
+  listAlerts: (to: string): CallAlert[] =>
+    state()
+      .alerts.filter((a) => a.to === to && Date.now() - a.at < 90_000)
+      .map(({ id, leadId, name, phone }) => ({ id, leadId, name, phone })),
+  removeAlert(id: string) {
+    const st = state();
+    st.alerts = st.alerts.filter((a) => a.id !== id);
+  },
+  listComments: (id: string) => state().comments.get(id) ?? [],
+  addComment(id: string, text: string, file?: File) {
+    const st = state();
+    const c: Comment = { id: `c-${++st.n}`, at: new Date().toISOString(), author: "BUT CRM", text, files: file ? [{ name: file.name, url: "#" }] : [] };
+    st.comments.set(id, [...(st.comments.get(id) ?? []), c]);
   },
   listUsers: () => state().users,
   saveUser(id: string | null, u: Partial<StoredUser>): StoredUser {

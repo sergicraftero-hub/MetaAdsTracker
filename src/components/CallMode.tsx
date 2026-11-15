@@ -2,6 +2,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { stageOf } from "@/lib/fields";
 import type { Lead, LeadsPayload } from "@/lib/types";
+import { BonusCards } from "./Bonuses";
+import CallButton from "./CallButton";
+import Comments, { postComment } from "./Comments";
 import { SOURCE_LABEL, buildPools, nextPick, type Source } from "./queue";
 import { api, dayKey, fmtAgo, fmtWhen, pretty, str, telHref, timeKey, waHref } from "./util";
 
@@ -37,6 +40,8 @@ export default function CallMode({ data, replaceLead, toast }: Props) {
   const [tick, setTick] = useState(0);
   const leadsRef = useRef(data.leads);
   leadsRef.current = data.leads;
+  const meRef = useRef(data.me);
+  meRef.current = data.me;
 
   if (session.day !== dayKey(new Date())) Object.assign(session, { handled: new Set<string>(), slot: 0, done: 0, day: dayKey(new Date()) });
 
@@ -46,7 +51,7 @@ export default function CallMode({ data, replaceLead, toast }: Props) {
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const pools = useMemo(() => buildPools(data.leads, session.handled), [data.leads, cur?.id, Math.floor(tick / 20)]);
+  const pools = useMemo(() => buildPools(data.leads, session.handled, data.me), [data.leads, data.me, cur?.id, Math.floor(tick / 20)]);
   const lead = cur ? data.leads.find((l) => l.id === cur.id) : undefined;
 
   /** Busca el siguiente lead, lo reserva en Notion y lo enseña. */
@@ -57,7 +62,7 @@ export default function CallMode({ data, replaceLead, toast }: Props) {
     setCbDate("");
     setCbTime("");
     for (let tries = 0; tries < 8; tries++) {
-      const pick = nextPick(buildPools(leadsRef.current, session.handled), session.slot);
+      const pick = nextPick(buildPools(leadsRef.current, session.handled, meRef.current), session.slot);
       if (!pick) break;
       try {
         const { lead: fresh } = await api<{ lead: Lead }>(`/api/leads/${pick.lead.id}/reservar`, "POST");
@@ -65,13 +70,13 @@ export default function CallMode({ data, replaceLead, toast }: Props) {
         leadsRef.current = leadsRef.current.map((l) => (l.id === fresh.id ? fresh : l));
         // Si alguien lo ha tocado mientras tanto y ya no toca llamarlo, se pasa al siguiente
         // (se conserva la fecha de edición anterior: reservarlo no cuenta como un intento reciente)
-        const still = nextPick(buildPools([{ ...fresh, edited: pick.lead.edited }], session.handled), 0);
+        const still = nextPick(buildPools([{ ...fresh, edited: pick.lead.edited }], session.handled, meRef.current), 0);
         if (!still) {
           session.handled.add(fresh.id);
           continue;
         }
         setCur({ id: fresh.id, source: pick.source, slots: pick.slots, shownAt: new Date().toISOString(), called: false });
-        setNotes(str(fresh.f.comentarios));
+        setNotes("");
         setBusy(false);
         return;
       } catch (e) {
@@ -91,17 +96,10 @@ export default function CallMode({ data, replaceLead, toast }: Props) {
     if (!cur || !lead) return;
     setBusy(true);
     try {
+      // La nota y el contrato van primero, como comentario en la página del lead en Notion
+      if (fields && (notes.trim() || file)) await postComment(cur.id, notes.trim() || (file ? "Contrato firmado" : ""), file);
       const body = { fields: fields ?? {}, skipped: fields === null, shownAt: cur.shownAt, called: cur.called, source: cur.source };
-      const r = await api<{ lead: Lead; logged: boolean }>(`/api/leads/${cur.id}/llamada`, "POST", body);
-      let saved = r.lead;
-      if (file && fields) {
-        const form = new FormData();
-        form.append("file", file);
-        const res = await fetch(`/api/leads/${cur.id}/contrato`, { method: "POST", body: form });
-        const j = await res.json().catch(() => ({}));
-        if (res.ok) saved = j.lead;
-        else toast(`El lead se guardó, pero el contrato no se subió: ${j.error ?? "error"}`, true);
-      }
+      const saved = (await api<{ lead: Lead; logged: boolean }>(`/api/leads/${cur.id}/llamada`, "POST", body)).lead;
       replaceLead(saved);
       leadsRef.current = leadsRef.current.map((l) => (l.id === saved.id ? saved : l));
       session.handled.add(cur.id);
@@ -119,7 +117,7 @@ export default function CallMode({ data, replaceLead, toast }: Props) {
     const up = estado.toUpperCase();
     const needsStep = stage === "ganado" || (stage === "abierto" && up !== "ILOCALIZABLE" && up !== "SCORING");
     if (!needsStep) {
-      finish({ estado, comentarios: notes, rellamada: null });
+      finish({ estado, rellamada: null });
       return;
     }
     setPending(estado);
@@ -130,7 +128,7 @@ export default function CallMode({ data, replaceLead, toast }: Props) {
   function confirmPending() {
     if (!pending) return;
     const rellamada = cbDate ? (cbTime ? new Date(`${cbDate}T${cbTime}:00`).toISOString() : cbDate) : null;
-    finish({ estado: pending, comentarios: notes, rellamada });
+    finish({ estado: pending, rellamada });
   }
 
   function quick(days: number, time: string) {
@@ -150,6 +148,7 @@ export default function CallMode({ data, replaceLead, toast }: Props) {
   if (!active || !cur || !lead) {
     return (
       <div className="call-wrap">
+        <BonusCards data={data} refreshKey={session.done} />
         <section className="card call-start">
           <h2 className="lead-name">{active && !busy ? "No queda nadie por llamar" : "Modo llamadas"}</h2>
           <p className="muted">
@@ -199,6 +198,7 @@ export default function CallMode({ data, replaceLead, toast }: Props) {
 
   return (
     <div className="call-wrap">
+      <BonusCards data={data} refreshKey={session.done} />
       <div className="call-bar">
         <span className={`pill src-${cur.source}`}>
           {SOURCE_LABEL[cur.source]}
@@ -217,13 +217,9 @@ export default function CallMode({ data, replaceLead, toast }: Props) {
         </div>
 
         <div className="contact">
-          <a
-            className="btn primary big"
-            href={telHref(f.telefono)}
-            onClick={() => setCur({ ...cur, called: true })}
-          >
+          <CallButton lead={lead} className="btn primary big" toast={toast} onCall={() => setCur({ ...cur, called: true })}>
             Llamar
-          </a>
+          </CallButton>
           <a className="btn big" href={waHref(f.telefono)} target="_blank" rel="noreferrer">WhatsApp</a>
         </div>
 
@@ -237,10 +233,11 @@ export default function CallMode({ data, replaceLead, toast }: Props) {
         </dl>
         {previous.length > 0 && <p className="muted hint">Intentos anteriores: {previous.join("  ·  ")}</p>}
 
-        <label>
-          Notas
-          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Lo que te cuente el cliente" />
-        </label>
+        <div className="field">
+          <span className="label">Notas</span>
+          <Comments key={cur.id} leadId={cur.id} compose={false} toast={toast} />
+          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Lo que te cuente el cliente (se guarda al marcar el resultado)" aria-label="Nota de esta llamada" />
+        </div>
 
         {pending ? (
           <div className="step">

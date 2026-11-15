@@ -3,15 +3,26 @@ import { useMemo, useState } from "react";
 import { isClosed, stageOf } from "@/lib/fields";
 import type { Lead, LeadsPayload } from "@/lib/types";
 import Activity from "./Activity";
-import { dayDiff, dayKey, entryTime, isDue, parseWhen, pretty, str } from "./util";
+import { dayKey, entryTime, isDue, pretty, str } from "./util";
 
-const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)} %` : "—");
+type Range = "7" | "30" | "90" | "365" | "max" | "custom";
+const RANGES: [Range, string][] = [
+  ["7", "7 días"],
+  ["30", "30 días"],
+  ["90", "90 días"],
+  ["365", "1 año"],
+  ["max", "Máximo"],
+  ["custom", "Periodo"],
+];
+const NOBODY = "Sin asignar";
+
+const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(a / b < 0.1 && a ? 1 : 0).replace(".", ",")} %` : "—");
 const contacted = (l: Lead) => !!l.f.estado || !!l.f.fechaContacto;
 const won = (l: Lead) => stageOf(l.f.estado) === "ganado";
 
-function Tile({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function Tile({ label, value, sub, hero }: { label: string; value: string | number; sub?: string; hero?: boolean }) {
   return (
-    <div className="tile">
+    <div className={hero ? "tile hero" : "tile"}>
       <span className="tile-label">{label}</span>
       <span className="tile-value">{value}</span>
       {sub && <span className="muted tile-sub">{sub}</span>}
@@ -19,21 +30,13 @@ function Tile({ label, value, sub }: { label: string; value: string | number; su
   );
 }
 
-function BarList({ rows }: { rows: { name: string; value: number }[] }) {
-  const max = Math.max(1, ...rows.map((r) => r.value));
-  return (
-    <ul className="barlist">
-      {rows.map((r) => (
-        <li key={r.name} title={`${r.name}: ${r.value}`}>
-          <span className="bar-name">{r.name}</span>
-          <span className="bar-track">
-            <span className="bar-fill" style={{ width: `${(r.value / max) * 100}%` }} />
-          </span>
-          <span className="bar-value">{r.value}</span>
-        </li>
-      ))}
-    </ul>
-  );
+function groupBy(leads: Lead[], key: (l: Lead) => string) {
+  const m = new Map<string, Lead[]>();
+  for (const l of leads) {
+    const k = key(l);
+    m.set(k, [...(m.get(k) ?? []), l]);
+  }
+  return m;
 }
 
 function Breakdown({ title, groups }: { title: string; groups: Map<string, Lead[]> }) {
@@ -48,7 +51,9 @@ function Breakdown({ title, groups }: { title: string; groups: Map<string, Lead[
               <th></th>
               <th>Leads</th>
               <th>Contactados</th>
+              <th>Contacto</th>
               <th>Firmados</th>
+              <th>Conversión</th>
               <th>Cierre</th>
             </tr>
           </thead>
@@ -61,7 +66,9 @@ function Breakdown({ title, groups }: { title: string; groups: Map<string, Lead[
                   <th scope="row">{name}</th>
                   <td>{ls.length}</td>
                   <td>{c}</td>
+                  <td>{pct(c, ls.length)}</td>
                   <td>{w}</td>
+                  <td>{pct(w, ls.length)}</td>
                   <td>{pct(w, c)}</td>
                 </tr>
               );
@@ -73,100 +80,217 @@ function Breakdown({ title, groups }: { title: string; groups: Map<string, Lead[
   );
 }
 
-function groupBy(leads: Lead[], key: (l: Lead) => string) {
-  const m = new Map<string, Lead[]>();
-  for (const l of leads) {
-    const k = key(l);
-    m.set(k, [...(m.get(k) ?? []), l]);
+interface Bucket {
+  key: string;
+  label: string;
+  tip: string;
+  leads: number;
+  won: number;
+}
+
+/** Reparte los leads por día, semana o mes según lo largo que sea el periodo. */
+function buckets(leads: Lead[], from: Date, to: Date): { unit: string; list: Bucket[] } {
+  const days = Math.round((to.getTime() - from.getTime()) / 86400_000) + 1;
+  const unit = days <= 31 ? "día" : days <= 125 ? "semana" : "mes";
+  const start = (d: Date) => {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    if (unit === "semana") x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+    if (unit === "mes") x.setDate(1);
+    return x;
+  };
+  const list: Bucket[] = [];
+  const index = new Map<string, Bucket>();
+  for (let d = start(from); d <= to; ) {
+    const key = dayKey(d);
+    const label =
+      unit === "mes" ? d.toLocaleDateString("es-ES", { month: "short" }) : unit === "semana" || days <= 10 || d.getDate() % 5 === 0 ? `${d.getDate()}/${d.getMonth() + 1}` : "";
+    const tip =
+      unit === "mes"
+        ? d.toLocaleDateString("es-ES", { month: "long", year: "numeric" })
+        : `${unit === "semana" ? "Semana del " : ""}${d.toLocaleDateString("es-ES", { day: "numeric", month: "short" })}`;
+    const b = { key, label, tip, leads: 0, won: 0 };
+    list.push(b);
+    index.set(key, b);
+    d = new Date(d);
+    if (unit === "día") d.setDate(d.getDate() + 1);
+    else if (unit === "semana") d.setDate(d.getDate() + 7);
+    else d.setMonth(d.getMonth() + 1);
   }
-  return m;
+  for (const l of leads) {
+    const b = index.get(dayKey(start(new Date(entryTime(l)))));
+    if (!b) continue;
+    b.leads++;
+    if (won(l)) b.won++;
+  }
+  return { unit, list };
 }
 
 export default function Dashboard({ data }: { data: LeadsPayload }) {
-  const [range, setRange] = useState<"7" | "30" | "all">("30");
-  const [comercial, setComercial] = useState("");
+  const [range, setRange] = useState<Range>("30");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [who, setWho] = useState<Set<string>>(new Set());
   const admin = data.me.role === "admin";
 
-  const leads = useMemo(() => {
-    const since = range === "all" ? 0 : Date.now() - Number(range) * 86400_000;
-    return data.leads.filter((l) => entryTime(l) >= since && (!comercial || str(l.f.comercial) === comercial));
-  }, [data.leads, range, comercial]);
-
-  const days = useMemo(() => {
-    const n = range === "7" ? 7 : 30;
-    const counts = new Map<string, number>();
-    for (const l of leads) {
-      const w = parseWhen(l.f.fecha);
-      if (w) counts.set(dayKey(w.date), (counts.get(dayKey(w.date)) ?? 0) + 1);
+  const period = useMemo(() => {
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    if (range === "custom") {
+      return { start: from ? new Date(`${from}T00:00:00`) : new Date(0), end: to ? new Date(`${to}T23:59:59`) : end };
     }
-    return Array.from({ length: n }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - (n - 1 - i));
-      return { date: d, value: counts.get(dayKey(d)) ?? 0 };
-    });
-  }, [leads, range]);
-  const maxDay = Math.max(1, ...days.map((d) => d.value));
+    if (range === "max") return { start: new Date(0), end };
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - (Number(range) - 1));
+    return { start, end };
+  }, [range, from, to]);
+
+  const leads = useMemo(
+    () =>
+      data.leads.filter((l) => {
+        const t = entryTime(l);
+        if (t < period.start.getTime() || t > period.end.getTime()) return false;
+        return !who.size || who.has(str(l.f.comercial) || NOBODY);
+      }),
+    [data.leads, period, who],
+  );
+
+  const chart = useMemo(() => {
+    const times = leads.map(entryTime).filter(Boolean);
+    if (!times.length) return { unit: "día", list: [] as Bucket[] };
+    const first = period.start.getTime() > 0 ? period.start : new Date(Math.min(...times));
+    return buckets(leads, first, new Date(Math.min(period.end.getTime(), Date.now())));
+  }, [leads, period]);
+  const maxBar = Math.max(1, ...chart.list.map((b) => b.leads));
 
   const nContacted = leads.filter(contacted).length;
   const nWon = leads.filter(won).length;
+  const nOpen = leads.filter((l) => stageOf(l.f.estado) === "abierto").length;
+  const nLost = leads.filter((l) => stageOf(l.f.estado) === "perdido").length;
   const overdue = leads.filter((l) => !isClosed(l.f.estado) && l.f.rellamada && isDue(l.f.rellamada)).length;
   const byEstado = [...groupBy(leads, (l) => str(l.f.estado) || "Sin contactar").entries()]
     .map(([name, ls]) => ({ name, value: ls.length }))
     .sort((a, b) => b.value - a.value);
+  const maxEstado = Math.max(1, ...byEstado.map((r) => r.value));
+
+  const toggle = (name: string) =>
+    setWho((s) => {
+      const n = new Set(s);
+      if (n.has(name)) n.delete(name);
+      else n.add(name);
+      return n;
+    });
 
   return (
     <div className="stack">
-      <Activity data={data} />
-      <h2 className="section-title">Leads</h2>
       <div className="filters">
-        <div className="seg" role="group" aria-label="Periodo de entrada del lead">
-          {(["7", "30", "all"] as const).map((r) => (
+        <div className="seg wrap" role="group" aria-label="Periodo de entrada del lead">
+          {RANGES.map(([r, label]) => (
             <button key={r} className={range === r ? "active" : ""} onClick={() => setRange(r)}>
-              {r === "all" ? "Todo" : `${r} días`}
+              {label}
             </button>
           ))}
         </div>
-        {admin && (
-          <select value={comercial} onChange={(e) => setComercial(e.target.value)} aria-label="Comercial">
-            <option value="">Todos los comerciales</option>
-            {data.comerciales.map((c) => <option key={c}>{c}</option>)}
-          </select>
+        {range === "custom" && (
+          <div className="dates">
+            <label>
+              Desde
+              <input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
+            </label>
+            <label>
+              Hasta
+              <input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
+            </label>
+          </div>
         )}
       </div>
+      {admin && (
+        <div className="who-filter" role="group" aria-label="Comerciales">
+          <button className={who.size ? "tag" : "tag on"} onClick={() => setWho(new Set())}>Todos</button>
+          {[...data.comerciales, NOBODY].map((c) => (
+            <button key={c} className={who.has(c) ? "tag on" : "tag"} aria-pressed={who.has(c)} onClick={() => toggle(c)}>
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="muted hint">Las tasas cuentan los leads por su fecha de entrada: de los que entraron en el periodo, cuántos se han contactado y firmado hasta hoy.</p>
 
       <div className="tiles">
+        <Tile hero label="Conversión a firmado" value={pct(nWon, leads.length)} sub={`${nWon} firmados de ${leads.length} leads`} />
+        <Tile label="Tasa de contacto" value={pct(nContacted, leads.length)} sub={`${nContacted} contactados`} />
+        <Tile label="Cierre sobre contactados" value={pct(nWon, nContacted)} sub="firmados entre contactados" />
         <Tile label="Leads" value={leads.length} sub="entrados en el periodo" />
-        <Tile label="Contactados" value={nContacted} sub={`${pct(nContacted, leads.length)} de los leads`} />
-        <Tile label="Firmados" value={nWon} sub={`${pct(nWon, leads.length)} de los leads`} />
-        <Tile label="Cierre sobre contactados" value={pct(nWon, nContacted)} />
-        <Tile label="Sin contactar" value={leads.length - nContacted} />
-        <Tile label="Rellamadas atrasadas o de hoy" value={overdue} />
+        <Tile label="En curso" value={nOpen} sub={`${overdue} con rellamada atrasada o de hoy`} />
+        <Tile label="Descartados" value={nLost} sub={`${pct(nLost, leads.length)} de los leads`} />
       </div>
 
       <section className="card">
-        <h2>Leads que entran por día</h2>
-        <p className="muted hint">Últimos {days.length} días · máximo {maxDay} en un día</p>
-        <div className="daychart" role="img" aria-label={`Leads por día en los últimos ${days.length} días`}>
-          {days.map((d) => (
-            <div key={dayKey(d.date)} className="day" tabIndex={0}>
-              <span className="tip">
-                {d.date.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })}: <strong>{d.value}</strong>
-              </span>
-              <span className="day-bar" style={{ height: `${(d.value / maxDay) * 100}%` }} />
-              <span className="day-label">{dayDiff(d.date) === 0 ? "hoy" : d.date.getDate() % 5 === 0 || days.length <= 7 ? d.date.getDate() : ""}</span>
-            </div>
-          ))}
+        <h2>Leads y firmados por {chart.unit}</h2>
+        <div className="legend">
+          <span><i className="sw s1" /> Leads</span>
+          <span><i className="sw s2" /> Firmados</span>
         </div>
+        {chart.list.length === 0 ? (
+          <p className="muted empty-line">Sin leads en este periodo.</p>
+        ) : (
+          <div className="daychart" role="img" aria-label={`Leads y firmados por ${chart.unit}`}>
+            {chart.list.map((b) => (
+              <div key={b.key} className="day" tabIndex={0}>
+                <span className="tip">
+                  {b.tip}: <strong>{b.leads}</strong> leads, <strong>{b.won}</strong> firmados ({pct(b.won, b.leads)})
+                </span>
+                <span className="pair">
+                  <span className="day-bar" style={{ height: `${(b.leads / maxBar) * 100}%` }} />
+                  <span className="day-bar s2" style={{ height: `${(b.won / maxBar) * 100}%` }} />
+                </span>
+                <span className="day-label">{b.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {chart.list.length > 0 && (
+          <details>
+            <summary>Ver como tabla</summary>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Periodo</th><th>Leads</th><th>Firmados</th><th>Conversión</th></tr>
+                </thead>
+                <tbody>
+                  {chart.list.map((b) => (
+                    <tr key={b.key}><th scope="row">{b.tip}</th><td>{b.leads}</td><td>{b.won}</td><td>{pct(b.won, b.leads)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        )}
       </section>
+
+      {admin && <Breakdown title="Conversión por comercial" groups={groupBy(leads, (l) => str(l.f.comercial) || NOBODY)} />}
 
       <section className="card">
         <h2>Leads por estado</h2>
-        {byEstado.length ? <BarList rows={byEstado} /> : <p className="muted empty-line">Sin leads en este periodo.</p>}
+        {byEstado.length ? (
+          <ul className="barlist">
+            {byEstado.map((r) => (
+              <li key={r.name} title={`${r.name}: ${r.value}`}>
+                <span className="bar-name">{r.name}</span>
+                <span className="bar-track"><span className="bar-fill" style={{ width: `${(r.value / maxEstado) * 100}%` }} /></span>
+                <span className="bar-value">{r.value}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted empty-line">Sin leads en este periodo.</p>
+        )}
       </section>
 
-      {admin && <Breakdown title="Por comercial" groups={groupBy(leads, (l) => str(l.f.comercial) || "Sin asignar")} />}
-      <Breakdown title="Por compañía actual" groups={groupBy(leads, (l) => pretty(l.f.compania) || "—")} />
-      <Breakdown title="Por lo que paga al mes" groups={groupBy(leads, (l) => pretty(l.f.cuantoPaga) || "—")} />
+      <Breakdown title="Conversión por compañía actual" groups={groupBy(leads, (l) => pretty(l.f.compania) || "—")} />
+      <Breakdown title="Conversión por lo que paga al mes" groups={groupBy(leads, (l) => pretty(l.f.cuantoPaga) || "—")} />
+
+      <Activity data={data} />
     </div>
   );
 }

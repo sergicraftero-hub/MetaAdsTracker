@@ -4,15 +4,17 @@ CRM de seguimiento comercial de leads. Es una app web instalable (PWA): el mismo
 
 ## Qué hace
 
-- **Llamar**: modo de llamadas en cola. Sale un lead cada vez con sus datos y respuestas; al marcar el resultado se guarda en Notion y aparece el siguiente. El orden es 2 leads antiguos sin llamar, 1 nuevo, y así sucesivamente; las rellamadas con hora se cuelan cuando llega su hora y las atrasadas se intercalan una por ciclo. Cuando se acaban los leads sin llamar entran los ilocalizables. Al enseñar un lead se reserva para quien lo va a llamar (columna `COMERCIAL`), para que dos personas no llamen al mismo. Al marcar «Firmado» se puede subir el contrato (columna `CONTRATO`, que la app crea) y el lead pasa a `ESTADO_CONTRATO = FIRMADO`.
-- **Hoy**: rellamadas de hoy y atrasadas, leads nuevos sin contactar, ilocalizables por reintentar y próximas rellamadas.
-- **Leads**: buscador y filtros por estado y comercial; alta manual de leads.
-- **Ficha**: llamar, WhatsApp y email con un toque; registrar intento (rellena `1ER/2DO/3ER_INTENTO`, `INTENTOS` y `FECHA_CONTACTO`); cambiar estado; programar rellamada; comentarios; asignar comercial.
+- **Llamar**: modo de llamadas en cola. Sale un lead cada vez con sus datos, sus respuestas y sus notas; al marcar el resultado se guarda en Notion y aparece el siguiente. El orden es 2 leads antiguos sin llamar, 1 nuevo, y así sucesivamente; las rellamadas con hora se cuelan cuando llega su hora y las atrasadas se intercalan una por ciclo. Cuando se acaban los leads sin llamar entran los ilocalizables. Al enseñar un lead se reserva para quien lo va a llamar (columna `COMERCIAL`). Arriba se ven los bonos en juego.
+- **Agenda**: rellamadas por día. Son de todo el equipo: cada comercial ve las suyas y puede ver las de los demás; si el dueño no atiende una a su hora (15 minutos de margen), le sale en la cola a quien esté de turno.
+- **Leads**: buscador y filtros por estado y comercial; alta manual; dirección puede asignar varios leads de golpe a un comercial.
+- **Ficha**: llamar, WhatsApp y email; registrar intento (rellena `1ER/2DO/3ER_INTENTO`, `INTENTOS` y `FECHA_CONTACTO`); cambiar estado; programar rellamada; asignar comercial; notas y contrato.
+- **Notas y contrato**: son los comentarios de la página del lead en Notion, igual que los usa el equipo a mano. La app los lee y añade nuevos (con el nombre de quien escribe delante), y el contrato se sube como archivo adjunto de un comentario (hasta 4 MB).
+- **Llamar desde el ordenador**: en un ordenador, el botón «Llamar» envía un aviso al móvil o tablet donde el mismo usuario tenga la app abierta; al aceptarlo, el teléfono marca el número.
 - **Embudo**: tablero por estado; en ordenador se arrastra un lead para cambiarlo de estado.
-- **Panel**: actividad de llamadas (llamadas, contactos, firmados, tiempo medio por lead, llamadas por hora, primera y última llamada, por persona) y métricas de leads (contactados, firmados y cierre, por día, estado, comercial, compañía y gasto mensual).
-- **Equipo** (solo dirección): usuarios y comprobación de la conexión con Notion.
+- **Panel**: tasas de conversión (a firmado, de contacto y de cierre) para 7, 30 y 90 días, 1 año, máximo o un periodo a medida, filtrando por uno o varios comerciales; evolución por día, semana o mes; desglose por comercial, estado, compañía y gasto. Debajo, la actividad de llamadas por persona.
+- **Equipo** (solo dirección): usuarios (alta, edición, acceso y contraseña), bonos (uno para todo el equipo y otros individuales, con premio, meta y periodo) y comprobación de la conexión con Notion.
 
-**Roles.** Dirección ve todo y puede reasignar. Cada comercial ve los leads cuya columna `COMERCIAL` coincide con su código y, por defecto, también los que no tienen comercial (se le asignan al registrar el primer intento). Para que solo vean los suyos: `COMERCIAL_VE_SIN_ASIGNAR=false`.
+**Roles.** Dirección ve todo y puede reasignar. Cada comercial ve los leads cuya columna `COMERCIAL` coincide con su código, las rellamadas pendientes de todo el equipo y, por defecto, también los leads que no tienen comercial (se le asignan cuando le salen en la cola). Para que solo vean los suyos: `COMERCIAL_VE_SIN_ASIGNAR=false`.
 
 Los estados y comerciales se leen de las opciones de las columnas de Notion, así que añadir uno en Notion lo añade en la app.
 
@@ -26,15 +28,13 @@ Los estados y comerciales se leen de las opciones de las columnas de Notion, as�
    - `ADMIN_EMAIL` y `ADMIN_PASSWORD`: el acceso de dirección inicial.
 3. *Deploy*. Abre la dirección que da Vercel y entra con el email y la contraseña de dirección.
 
-### Activar usuarios y registro de llamadas
+### Datos propios de la app
 
-La app guarda sus propios datos (usuarios y registro de llamadas) en dos bases de datos de Notion que crea ella sola. Solo necesita un sitio donde crearlas:
+La app guarda sus propios datos en bases de datos de Notion que crea ella sola dentro de una página llamada exactamente **BUT Calls**, compartida con la integración (`···` → *Conexiones*): «Usuarios», «Registro de llamadas», «Bonos» y «Avisos de llamada». Cada una aparece la primera vez que hace falta.
 
-1. En Notion crea una página llamada exactamente **BUT Calls** y compártela con la integración (`···` → *Conexiones*).
-2. Abre la app. En uno o dos minutos crea dentro «BUT Calls · Usuarios» y «BUT Calls · Registro de llamadas».
-3. En *Equipo → Añadir usuario* da de alta a cada comercial con su código de la columna `COMERCIAL`. Las contraseñas se guardan cifradas (hash scrypt), nunca en claro.
+En *Equipo → Añadir usuario* se da de alta a cada comercial con su código de la columna `COMERCIAL`. Las contraseñas se guardan cifradas (hash scrypt), nunca en claro.
 
-Sin esa página la app funciona igual, pero solo entra el administrador inicial y las llamadas no se registran para las métricas. Si prefieres usar bases ya existentes, indica sus ID en `NOTION_USERS_DB_ID` y `NOTION_LOG_DB_ID`.
+La integración de Notion necesita permiso para leer y escribir contenido, leer e insertar comentarios y leer usuarios.
 
 ### Instalar la app
 
@@ -57,4 +57,5 @@ Sin `NOTION_TOKEN` la app arranca en **modo demostración** con datos inventados
 - `src/lib/notion.ts`: lectura y escritura en Notion (con caché y sincronización incremental).
 - `src/lib/leadRules.ts`: permisos por rol y registro de intentos.
 - `src/components/queue.ts`: orden de la cola del modo «Llamar».
+- `src/lib/bonus.ts`: cómo se calcula el progreso de los bonos.
 - `src/components/`: pantallas.

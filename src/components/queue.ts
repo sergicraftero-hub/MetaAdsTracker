@@ -1,5 +1,5 @@
 import { isClosed, stageOf } from "@/lib/fields";
-import type { Lead } from "@/lib/types";
+import type { Lead, Session } from "@/lib/types";
 import { entryTime, isDue, parseWhen, str } from "./util";
 
 export type Source = "rellamada" | "antiguo" | "nuevo" | "ilocalizable";
@@ -29,10 +29,16 @@ export interface Pools {
 }
 
 const RETRY_AFTER = 3 * 3600_000;
+/** Margen que se deja al dueño de una rellamada antes de ofrecérsela al resto del equipo */
+const OWNER_GRACE = 15 * 60_000;
 const attempts = (l: Lead) => [l.f.intento1, l.f.intento2, l.f.intento3].filter(Boolean).length;
 const cbTime = (l: Lead) => parseWhen(l.f.rellamada)?.date.getTime() ?? 0;
 
-export function buildPools(leads: Lead[], handled: Set<string>, now = Date.now()): Pools {
+export function buildPools(leads: Lead[], handled: Set<string>, me: Session, now = Date.now()): Pools {
+  const mine = (l: Lead) => {
+    const owner = str(l.f.comercial).trim().toLowerCase();
+    return me.role === "admin" || !owner || owner === me.code.trim().toLowerCase();
+  };
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);
   const pools: Pools = { timed: [], backlog: [], fresh: [], iloc: [] };
@@ -41,10 +47,14 @@ export function buildPools(leads: Lead[], handled: Set<string>, now = Date.now()
     const cb = parseWhen(l.f.rellamada);
     if (cb) {
       const t = cb.date.getTime();
-      if (cb.hasTime && t <= now && t >= startOfDay.getTime()) pools.timed.push(l);
+      if (cb.hasTime && t <= now && t >= startOfDay.getTime()) {
+        // La rellamada de otro comercial solo entra si él no la ha atendido a su hora
+        if (mine(l) || now - t >= OWNER_GRACE) pools.timed.push(l);
+      }
       else if (isDue(l.f.rellamada) && !(cb.hasTime && t > now)) pools.backlog.push(l);
       continue; // con rellamada futura no se toca hasta que llegue
     }
+    if (!mine(l)) continue;
     if (stageOf(l.f.estado) === "nuevo") pools.fresh.push(l);
     else if (str(l.f.estado).toUpperCase() === "ILOCALIZABLE" && now - new Date(l.edited).getTime() > RETRY_AFTER) pools.iloc.push(l);
   }

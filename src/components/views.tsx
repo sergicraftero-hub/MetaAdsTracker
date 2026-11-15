@@ -3,7 +3,8 @@ import { useMemo, useState } from "react";
 import { isClosed, stageOf } from "@/lib/fields";
 import type { Lead, LeadsPayload, Schema } from "@/lib/types";
 import type { Actions } from "./App";
-import { dayDiff, entryTime, fmtAgo, fmtWhen, isDue, matches, parseWhen, pretty, str, telHref } from "./util";
+import CallButton from "./CallButton";
+import { api, dayDiff, entryTime, fmtAgo, fmtWhen, isDue, matches, parseWhen, pretty, str } from "./util";
 
 interface Props {
   data: LeadsPayload;
@@ -17,85 +18,106 @@ export function Chip({ value, schema, field = "estado" }: { value: unknown; sche
   return <span className={`chip c-${color}`}>{name}</span>;
 }
 
-export function LeadRow({ lead, data, actions, meta }: Props & { lead: Lead; meta?: "rellamada" | "entrada" }) {
+const PHONE_ICON = (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />
+  </svg>
+);
+
+interface RowProps extends Props {
+  lead: Lead;
+  meta?: "rellamada" | "entrada";
+  showOwner?: boolean;
+  /** Si se pasa, la fila lleva casilla de selección (asignación en bloque) */
+  selected?: boolean;
+  onSelect?: (id: string) => void;
+}
+
+export function LeadRow({ lead, data, actions, meta, showOwner, selected, onSelect }: RowProps) {
   const f = lead.f;
   const due = meta === "rellamada" && isDue(f.rellamada) && !isClosed(f.estado);
+  const owner = showOwner || data.me.role === "admin" ? str(f.comercial) || (showOwner ? "sin asignar" : "") : "";
   return (
     <li className="row">
+      {onSelect && <input type="checkbox" className="pick" checked={!!selected} onChange={() => onSelect(lead.id)} aria-label={`Seleccionar a ${str(f.nombre)}`} />}
       <button className="row-main" onClick={() => actions.open(lead.id)}>
         <span className="row-title">
           <strong>{str(f.nombre) || "Sin nombre"}</strong>
           <Chip value={f.estado} schema={data.schema} />
         </span>
-        <span className="row-sub muted">
-          {[str(f.telefono), pretty(f.compania), pretty(f.cuantoPaga), data.me.role === "admin" ? str(f.comercial) : ""]
-            .filter(Boolean)
-            .join(" · ")}
-        </span>
+        <span className="row-sub muted">{[str(f.telefono), pretty(f.compania), pretty(f.cuantoPaga), owner].filter(Boolean).join(" · ")}</span>
       </button>
       <span className={due ? "row-meta due" : "row-meta muted"}>
         {meta === "rellamada" && f.rellamada ? fmtWhen(f.rellamada) : fmtAgo(f.fecha)}
       </span>
-      {f.telefono && (
-        <a className="icon-btn" href={telHref(f.telefono)} aria-label={`Llamar a ${str(f.nombre)}`}>
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" />
-          </svg>
-        </a>
+      {f.telefono && !onSelect && (
+        <CallButton lead={lead} className="icon-btn" toast={actions.toast} label={`Llamar a ${str(f.nombre)}`}>
+          {PHONE_ICON}
+        </CallButton>
       )}
     </li>
   );
 }
 
-function Section({ title, hint, leads, data, actions, meta, limit = 8 }: Props & { title: string; hint?: string; leads: Lead[]; meta?: "rellamada" | "entrada"; limit?: number }) {
-  const [all, setAll] = useState(false);
-  const shown = all ? leads : leads.slice(0, limit);
-  return (
-    <section className="card">
-      <h2>
-        {title} <span className="count">{leads.length}</span>
-      </h2>
-      {hint && <p className="muted hint">{hint}</p>}
-      {leads.length === 0 ? (
-        <p className="muted empty-line">Nada pendiente aquí.</p>
-      ) : (
-        <ul className="rows">
-          {shown.map((l) => (
-            <LeadRow key={l.id} lead={l} data={data} actions={actions} meta={meta} />
-          ))}
-        </ul>
-      )}
-      {leads.length > limit && (
-        <button className="btn link" onClick={() => setAll(!all)}>
-          {all ? "Ver menos" : `Ver los ${leads.length}`}
-        </button>
-      )}
-    </section>
-  );
-}
-
 const callbackTime = (l: Lead) => parseWhen(l.f.rellamada)?.date.getTime() ?? Infinity;
 
-export function Today({ data, actions }: Props) {
-  const g = useMemo(() => {
-    const open = data.leads.filter((l) => !isClosed(l.f.estado));
-    const withCb = open.filter((l) => l.f.rellamada).sort((a, b) => callbackTime(a) - callbackTime(b));
-    return {
-      due: withCb.filter((l) => isDue(l.f.rellamada)),
-      next: withCb.filter((l) => !isDue(l.f.rellamada)),
-      fresh: open.filter((l) => stageOf(l.f.estado) === "nuevo").sort((a, b) => entryTime(b) - entryTime(a)),
-      retry: open
-        .filter((l) => str(l.f.estado).toUpperCase() === "ILOCALIZABLE" && !l.f.rellamada && !l.f.intento3)
-        .sort((a, b) => entryTime(b) - entryTime(a)),
-    };
-  }, [data.leads]);
-  const p = { data, actions };
+/** Agenda de rellamadas de todo el equipo, agrupada por día. */
+export function Agenda({ data, actions }: Props) {
+  const hasCode = !!data.me.code;
+  const [scope, setScope] = useState<"mias" | "todas">(hasCode ? "mias" : "todas");
+  const groups = useMemo(() => {
+    const code = data.me.code.trim().toLowerCase();
+    const list = data.leads
+      .filter((l) => l.f.rellamada && !isClosed(l.f.estado))
+      .filter((l) => scope === "todas" || str(l.f.comercial).trim().toLowerCase() === code)
+      .sort((a, b) => callbackTime(a) - callbackTime(b));
+    const out: { key: string; title: string; late: boolean; leads: Lead[] }[] = [];
+    for (const l of list) {
+      const w = parseWhen(l.f.rellamada);
+      if (!w) continue;
+      const diff = dayDiff(w.date);
+      const key = diff < 0 ? "late" : String(diff);
+      const title =
+        diff < 0
+          ? "Atrasadas"
+          : diff === 0
+            ? "Hoy"
+            : diff === 1
+              ? "Mañana"
+              : w.date.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+      const g = out.find((x) => x.key === key);
+      if (g) g.leads.push(l);
+      else out.push({ key, title, late: diff < 0, leads: [l] });
+    }
+    return out;
+  }, [data.leads, data.me.code, scope]);
+
   return (
     <div className="stack">
-      <Section {...p} title="Rellamadas de hoy y atrasadas" leads={g.due} meta="rellamada" limit={12} />
-      <Section {...p} title="Leads nuevos sin contactar" hint="Los más recientes primero: cuanto antes se llama, más se cierra." leads={g.fresh} />
-      <Section {...p} title="Ilocalizables por reintentar" hint="Sin rellamada programada y con menos de tres intentos." leads={g.retry} limit={5} />
-      <Section {...p} title="Próximas rellamadas" leads={g.next} meta="rellamada" limit={5} />
+      <div className="filters">
+        {hasCode && (
+          <div className="seg" role="group" aria-label="De quién son las rellamadas">
+            <button className={scope === "mias" ? "active" : ""} onClick={() => setScope("mias")}>Mías</button>
+            <button className={scope === "todas" ? "active" : ""} onClick={() => setScope("todas")}>Todo el equipo</button>
+          </div>
+        )}
+        <p className="muted hint agenda-note">
+          Las rellamadas son de todo el equipo: si a su hora el comercial no está, se la puede hacer quien esté de turno.
+        </p>
+      </div>
+      {groups.length === 0 && <section className="card"><p className="muted empty-line">No hay rellamadas programadas.</p></section>}
+      {groups.map((g) => (
+        <section className="card" key={g.key}>
+          <h2 className={g.late ? "due" : ""}>
+            <span className="cap">{g.title}</span> <span className="count">{g.leads.length}</span>
+          </h2>
+          <ul className="rows">
+            {g.leads.slice(0, g.late ? 100 : 200).map((l) => (
+              <LeadRow key={l.id} lead={l} data={data} actions={actions} meta="rellamada" showOwner />
+            ))}
+          </ul>
+        </section>
+      ))}
     </div>
   );
 }
@@ -105,6 +127,10 @@ export function LeadList({ data, actions }: Props) {
   const [estado, setEstado] = useState("");
   const [comercial, setComercial] = useState("");
   const [limit, setLimit] = useState(60);
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [target, setTarget] = useState("");
+  const [progress, setProgress] = useState<number | null>(null);
   const admin = data.me.role === "admin";
 
   const list = useMemo(
@@ -119,6 +145,33 @@ export function LeadList({ data, actions }: Props) {
         .sort((a, b) => entryTime(b) - entryTime(a)),
     [data.leads, q, estado, comercial],
   );
+
+  const toggle = (id: string) =>
+    setPicked((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  /** Asigna (o desasigna) los leads marcados, de uno en uno para no saturar Notion. */
+  async function assign() {
+    const ids = [...picked];
+    let failed = 0;
+    for (let i = 0; i < ids.length; i++) {
+      setProgress(i + 1);
+      try {
+        const { lead } = await api<{ lead: Lead }>(`/api/leads/${ids[i]}`, "PATCH", { fields: { comercial: target === "__nadie" ? null : target } });
+        actions.replace(lead);
+      } catch {
+        failed++;
+      }
+    }
+    setProgress(null);
+    setPicked(new Set());
+    setPicking(false);
+    actions.toast(failed ? `${ids.length - failed} asignados; ${failed} fallaron` : `${ids.length} leads asignados`, failed > 0);
+  }
 
   return (
     <div className="stack">
@@ -136,12 +189,38 @@ export function LeadList({ data, actions }: Props) {
             {data.comerciales.map((c) => <option key={c}>{c}</option>)}
           </select>
         )}
+        {admin && !picking && <button className="btn" onClick={() => setPicking(true)}>Asignar varios</button>}
       </div>
+
+      {picking && (
+        <div className="card assign">
+          <strong>{picked.size} seleccionados</strong>
+          <button className="btn small" onClick={() => setPicked(new Set(list.map((l) => l.id)))}>Marcar los {list.length} de la lista</button>
+          <select value={target} onChange={(e) => setTarget(e.target.value)} aria-label="Asignar a">
+            <option value="">Asignar a…</option>
+            {data.comerciales.map((c) => <option key={c}>{c}</option>)}
+            <option value="__nadie">Quitar comercial</option>
+          </select>
+          <button className="btn primary small" disabled={!picked.size || !target || progress !== null} onClick={assign}>
+            {progress !== null ? `Asignando ${progress} de ${picked.size}…` : "Asignar"}
+          </button>
+          <button className="btn small" disabled={progress !== null} onClick={() => { setPicking(false); setPicked(new Set()); }}>Cancelar</button>
+        </div>
+      )}
+
       <section className="card">
         <p className="muted hint">{list.length} de {data.leads.length} leads</p>
         <ul className="rows">
           {list.slice(0, limit).map((l) => (
-            <LeadRow key={l.id} lead={l} data={data} actions={actions} meta={l.f.rellamada && !isClosed(l.f.estado) ? "rellamada" : "entrada"} />
+            <LeadRow
+              key={l.id}
+              lead={l}
+              data={data}
+              actions={actions}
+              meta={l.f.rellamada && !isClosed(l.f.estado) ? "rellamada" : "entrada"}
+              selected={picked.has(l.id)}
+              onSelect={picking ? toggle : undefined}
+            />
           ))}
         </ul>
         {list.length === 0 && <p className="muted empty-line">Ningún lead coincide con el filtro.</p>}
@@ -214,4 +293,3 @@ export function Pipeline({ data, actions }: Props) {
   );
 }
 
-export { dayDiff };

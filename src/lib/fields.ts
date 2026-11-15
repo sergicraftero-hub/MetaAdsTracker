@@ -82,6 +82,8 @@ export function isClosed(estado: unknown): boolean {
 export function canSee(me: Session, lead: Lead, unassignedVisible: boolean): boolean {
   if (me.role === "admin") return true;
   const owner = typeof lead.f.comercial === "string" ? lead.f.comercial.trim() : "";
+  // Agenda compartida: una rellamada pendiente la puede atender quien esté de turno
+  if (lead.f.rellamada && !isClosed(lead.f.estado)) return true;
   if (!owner) return unassignedVisible;
   return !!me.code && owner.toLowerCase() === me.code.trim().toLowerCase();
 }

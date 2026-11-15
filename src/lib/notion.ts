@@ -1,6 +1,6 @@
 import { NOTION_NAMES } from "./fields";
 import { FIELD_KEYS } from "./types";
-import type { CallLog, FieldKey, FieldSchema, Fields, Lead, Schema, StoredUser, Value } from "./types";
+import type { Bonus, CallAlert, CallLog, Comment, FieldKey, FieldSchema, Fields, Lead, Schema, StoredUser, Value } from "./types";
 
 const VERSION = "2022-06-28";
 const READ_ONLY = new Set([
@@ -153,13 +153,12 @@ interface Cache {
   usersSchema?: Record<string, { name: string; type: string }>;
   appDbs: Partial<Record<AppDb, { at: number; id: string | null }>>;
   log: { entries: Map<string, CallLog>; from: number; syncAt: number };
-  contractProp?: boolean;
+  people?: { at: number; names: Map<string, string> };
 }
-type AppDb = "users" | "log";
+type AppDb = "users" | "log" | "alerts" | "bonus";
 const g = globalThis as unknown as { __crmNotion?: Cache };
 const cache: Cache = (g.__crmNotion ??= { leads: new Map(), fullAt: 0, syncAt: 0, appDbs: {}, log: { entries: new Map(), from: Infinity, syncAt: 0 } });
 
-export const CONTRACT_PROP = "CONTRATO";
 const leadsDb = () => cleanId(process.env.NOTION_LEADS_DB_ID ?? "");
 
 export async function getSchema(force = false): Promise<Schema> {
@@ -183,8 +182,7 @@ export async function getSchema(force = false): Promise<Schema> {
 function toLead(page: any, schema: Schema): Lead {
   const f = {} as Fields;
   for (const key of FIELD_KEYS) f[key] = readProp(page.properties?.[schema[key].name]);
-  const files = page.properties?.[CONTRACT_PROP]?.files;
-  return { id: page.id, url: page.url, edited: page.last_edited_time, f, contrato: Array.isArray(files) ? (files[0]?.name ?? null) : null };
+  return { id: page.id, url: page.url, edited: page.last_edited_time, f };
 }
 
 async function queryAll(dbId: string, filter?: unknown): Promise<any[]> {
@@ -299,6 +297,25 @@ export const APP_PAGE = "BUT Calls";
 const APP_DBS: Record<AppDb, { env: string; title: string; titleProp: string; props: Record<string, any> }> = {
   users: { env: "NOTION_USERS_DB_ID", title: "BUT Calls · Usuarios", titleProp: "Nombre", props: USER_PROPS },
   log: { env: "NOTION_LOG_DB_ID", title: "BUT Calls · Registro de llamadas", titleProp: "Evento", props: LOG_PROPS },
+  bonus: {
+    env: "NOTION_BONUS_DB_ID",
+    title: "BUT Calls · Bonos",
+    titleProp: "Bono",
+    props: {
+      Premio: { rich_text: {} },
+      Metrica: { select: { options: [{ name: "firmados" }, { name: "llamadas" }, { name: "contactos" }] } },
+      Meta: { number: {} },
+      Periodo: { select: { options: [{ name: "dia" }, { name: "semana" }, { name: "mes" }] } },
+      Para: { rich_text: {} },
+      Activo: { checkbox: {} },
+    },
+  },
+  alerts: {
+    env: "NOTION_ALERTS_DB_ID",
+    title: "BUT Calls · Avisos de llamada",
+    titleProp: "Lead",
+    props: { Para: { rich_text: {} }, Telefono: { rich_text: {} }, LeadId: { rich_text: {} } },
+  },
 };
 
 /**
@@ -459,35 +476,154 @@ export async function getLog(from: number): Promise<CallLog[]> {
   return [...c.entries.values()].filter((e) => new Date(e.at).getTime() >= from);
 }
 
-/* ---------- Contrato firmado (archivo adjunto en el lead) ---------- */
+/* ---------- Comentarios de la página del lead (notas y contrato) ---------- */
 
+async function peopleNames(): Promise<Map<string, string>> {
+  if (cache.people && Date.now() - cache.people.at < 10 * 60_000) return cache.people.names;
+  const names = new Map<string, string>();
+  try {
+    const res = await api("users?page_size=100");
+    for (const u of res.results as any[]) if (u.name) names.set(u.id, u.name);
+  } catch {
+    // sin permiso para leer usuarios: se muestra el nombre que venga en el comentario
+  }
+  cache.people = { at: Date.now(), names };
+  return names;
+}
 
-export async function attachContract(leadId: string, file: File): Promise<Lead> {
-  if (!cache.contractProp) {
-    const db = await api(`databases/${leadsDb()}`);
-    const existing = Object.entries<any>(db.properties).find(([n]) => norm(n) === norm(CONTRACT_PROP));
-    if (existing && existing[1].type !== "files") {
-      throw new NotionError(`La columna «${CONTRACT_PROP}» existe en Notion pero no es de tipo «Archivos»`, 400);
+export async function listComments(pageId: string): Promise<Comment[]> {
+  const out: any[] = [];
+  let cursor: string | undefined;
+  do {
+    const res = await api(`comments?block_id=${pageId}&page_size=100${cursor ? `&start_cursor=${cursor}` : ""}`);
+    out.push(...res.results);
+    cursor = res.has_more ? res.next_cursor : undefined;
+  } while (cursor);
+  const names = await peopleNames();
+  return out.map((c) => ({
+    id: c.id,
+    at: c.created_time,
+    author: names.get(c.created_by?.id) ?? c.display_name?.resolved_name ?? "",
+    text: (c.rich_text ?? []).map((t: any) => t.plain_text).join(""),
+    files: (c.attachments ?? []).map((a: any) => {
+      const url: string = a.file?.url ?? "";
+      let name = "Archivo";
+      try {
+        name = decodeURIComponent(new URL(url).pathname.split("/").pop() || name);
+      } catch {}
+      return { name, url };
+    }),
+  }));
+}
+
+/** Añade un comentario a la página del lead, con un archivo adjunto opcional (por ejemplo el contrato). */
+export async function addComment(pageId: string, text: string, file?: File): Promise<void> {
+  const body: any = { parent: { page_id: pageId }, rich_text: richText(text) };
+  if (file) {
+    const upload = await api("file_uploads", "POST", {
+      mode: "single_part",
+      filename: file.name,
+      content_type: file.type || "application/octet-stream",
+    });
+    const form = new FormData();
+    form.append("file", file, file.name);
+    const sent = await fetch(`https://api.notion.com/v1/file_uploads/${upload.id}/send`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.NOTION_TOKEN}`, "Notion-Version": VERSION },
+      body: form,
+    });
+    if (!sent.ok) {
+      const j = await sent.json().catch(() => ({}));
+      throw new NotionError(`Notion no aceptó el archivo: ${j?.message ?? sent.statusText}`);
     }
-    if (!existing) await api(`databases/${leadsDb()}`, "PATCH", { properties: { [CONTRACT_PROP]: { files: {} } } });
-    cache.contractProp = true;
+    body.attachments = [{ file_upload_id: upload.id, type: "file_upload" }];
   }
-  const upload = await api("file_uploads", "POST", { mode: "single_part", filename: file.name, content_type: file.type || "application/octet-stream" });
-  const form = new FormData();
-  form.append("file", file, file.name);
-  const sent = await fetch(`https://api.notion.com/v1/file_uploads/${upload.id}/send`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.NOTION_TOKEN}`, "Notion-Version": VERSION },
-    body: form,
+  await api("comments", "POST", body);
+}
+
+/* ---------- Avisos «llamar desde el móvil» ---------- */
+
+const ALERT_TTL = 90_000;
+
+export async function addAlert(to: string, a: Omit<CallAlert, "id">): Promise<boolean> {
+  const dbId = await appDb("alerts");
+  if (!dbId) return false;
+  await api("pages", "POST", {
+    parent: { database_id: dbId },
+    properties: { Lead: { title: richText(a.name) }, Para: text(to), Telefono: text(a.phone), LeadId: text(a.leadId) },
   });
-  if (!sent.ok) {
-    const j = await sent.json().catch(() => ({}));
-    throw new NotionError(`Notion no aceptó el archivo: ${j?.message ?? sent.statusText}`);
-  }
-  const page = await api(`pages/${leadId}`, "PATCH", {
-    properties: { [CONTRACT_PROP]: { files: [{ type: "file_upload", file_upload: { id: upload.id }, name: file.name.slice(0, 100) }] } },
+  return true;
+}
+
+/** Avisos recientes (último minuto y medio) dirigidos a este usuario. */
+export async function listAlerts(to: string): Promise<CallAlert[]> {
+  const dbId = await appDb("alerts");
+  if (!dbId) return [];
+  const res = await api(`databases/${dbId}/query`, "POST", {
+    page_size: 5,
+    filter: {
+      and: [
+        { property: "Para", rich_text: { equals: to } },
+        { timestamp: "created_time", created_time: { on_or_after: new Date(Date.now() - ALERT_TTL - 60_000).toISOString() } },
+      ],
+    },
+    sorts: [{ timestamp: "created_time", direction: "descending" }],
   });
-  const lead = toLead(page, await getSchema());
-  cache.leads.set(lead.id, lead);
-  return lead;
+  return (res.results as any[])
+    .filter((p) => Date.now() - new Date(p.created_time).getTime() < ALERT_TTL + 60_000)
+    .map((p) => ({
+      id: p.id,
+      name: String(readProp(p.properties?.Lead) ?? ""),
+      phone: String(readProp(p.properties?.Telefono) ?? ""),
+      leadId: String(readProp(p.properties?.LeadId) ?? ""),
+    }));
+}
+
+export async function removeAlert(id: string): Promise<void> {
+  await api(`pages/${id}`, "PATCH", { archived: true });
+}
+
+/* ---------- Bonos ---------- */
+
+function toBonus(page: any): Bonus {
+  const g2 = (n: string) => readProp(page.properties?.[n]);
+  const metric = String(g2("Metrica") ?? "firmados");
+  const period = String(g2("Periodo") ?? "semana");
+  return {
+    id: page.id,
+    title: String(g2("Bono") ?? ""),
+    prize: String(g2("Premio") ?? ""),
+    metric: metric === "llamadas" || metric === "contactos" ? metric : "firmados",
+    goal: Number(g2("Meta") ?? 0),
+    period: period === "dia" || period === "mes" ? period : "semana",
+    para: String(g2("Para") ?? "").trim(),
+    active: g2("Activo") === true,
+  };
+}
+
+export const bonusConfigured = async () => !!(await appDb("bonus"));
+
+export async function listBonuses(): Promise<Bonus[]> {
+  const dbId = await appDb("bonus");
+  if (!dbId) return [];
+  return (await queryAll(dbId)).map(toBonus);
+}
+
+export async function saveBonus(id: string | null, b: Partial<Bonus>): Promise<Bonus> {
+  const props: Record<string, unknown> = {};
+  if (b.title !== undefined) props.Bono = { title: richText(b.title) };
+  if (b.prize !== undefined) props.Premio = text(b.prize);
+  if (b.metric !== undefined) props.Metrica = { select: { name: b.metric } };
+  if (b.goal !== undefined) props.Meta = { number: b.goal };
+  if (b.period !== undefined) props.Periodo = { select: { name: b.period } };
+  if (b.para !== undefined) props.Para = text(b.para);
+  if (b.active !== undefined) props.Activo = { checkbox: b.active };
+  const page = id
+    ? await api(`pages/${id}`, "PATCH", { properties: props })
+    : await api("pages", "POST", { parent: { database_id: await appDb("bonus") }, properties: props });
+  return toBonus(page);
+}
+
+export async function deleteBonus(id: string): Promise<void> {
+  await api(`pages/${id}`, "PATCH", { archived: true });
 }

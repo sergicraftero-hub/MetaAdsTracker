@@ -7,7 +7,8 @@ import LeadDetail from "./LeadDetail";
 import NewLead from "./NewLead";
 import Team from "./Team";
 import { api } from "./util";
-import { LeadList, Pipeline, Today } from "./views";
+import { PhoneAlerts } from "./CallButton";
+import { Agenda, LeadList, Pipeline } from "./views";
 
 type Tab = "llamar" | "hoy" | "leads" | "embudo" | "panel" | "equipo";
 const CACHE_KEY = "but-calls-v1";
@@ -20,7 +21,7 @@ const ICONS: Record<Tab, string> = {
   panel: "M4 20V10M10 20V4M16 20v-7M22 20H2",
   equipo: "M16 19v-1a4 4 0 0 0-8 0v1M12 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM20 19v-1a3 3 0 0 0-2-2.8M4 19v-1a3 3 0 0 1 2-2.8",
 };
-const TITLES: Record<Tab, string> = { llamar: "Llamar", hoy: "Hoy", leads: "Leads", embudo: "Embudo", panel: "Panel", equipo: "Equipo" };
+const TITLES: Record<Tab, string> = { llamar: "Llamar", hoy: "Agenda", leads: "Leads", embudo: "Embudo", panel: "Panel", equipo: "Equipo" };
 
 export interface Actions {
   open: (id: string) => void;
@@ -214,7 +215,7 @@ export default function App() {
           </div>
         </header>
         {tab === "llamar" && <CallMode data={data} replaceLead={replaceLead} toast={toast} />}
-        {tab === "hoy" && <Today data={data} actions={actions} />}
+        {tab === "hoy" && <Agenda data={data} actions={actions} />}
         {tab === "leads" && <LeadList data={data} actions={actions} />}
         {tab === "embudo" && <Pipeline data={data} actions={actions} />}
         {tab === "panel" && <Dashboard data={data} />}
@@ -234,6 +235,7 @@ export default function App() {
           }}
         />
       )}
+      <PhoneAlerts />
       {toastMsg && (
         <div className={toastMsg.error ? "toast bad" : "toast"} role="status">
           {toastMsg.msg}

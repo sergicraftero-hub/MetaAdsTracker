@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { LABELS, stageOf } from "@/lib/fields";
 import type { FieldKey, Lead, LeadsPayload } from "@/lib/types";
 import type { Actions } from "./App";
+import CallButton from "./CallButton";
+import Comments from "./Comments";
 import { dayKey, fmtAgo, fmtWhen, parseWhen, pretty, str, telHref, timeKey, waHref } from "./util";
 import { Chip } from "./views";
 
@@ -23,7 +25,6 @@ export default function LeadDetail({ lead, data, actions, onClose }: Props) {
   const cb = parseWhen(f.rellamada);
   const [cbDate, setCbDate] = useState(cb ? dayKey(cb.date) : "");
   const [cbTime, setCbTime] = useState(cb?.hasTime ? timeKey(cb.date) : "");
-  const [notes, setNotes] = useState(str(f.comentarios));
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const hasOption = (name: string) => schema.estado.options?.some((o) => o.name === name);
@@ -40,7 +41,6 @@ export default function LeadDetail({ lead, data, actions, onClose }: Props) {
     setCbDate(w ? dayKey(w.date) : "");
     setCbTime(w?.hasTime ? timeKey(w.date) : "");
   }, [f.rellamada]);
-  useEffect(() => setNotes(str(f.comentarios)), [f.comentarios]);
 
   const save = (fields: Parameters<Actions["save"]>[1]) => actions.save(lead.id, fields);
 
@@ -84,7 +84,7 @@ export default function LeadDetail({ lead, data, actions, onClose }: Props) {
           </div>
 
           <div className="contact">
-            <a className="btn primary" href={telHref(f.telefono)}>Llamar</a>
+            <CallButton lead={lead} toast={actions.toast}>Llamar</CallButton>
             <a className="btn" href={waHref(f.telefono)} target="_blank" rel="noreferrer">WhatsApp</a>
             {f.email && <a className="btn" href={`mailto:${str(f.email)}`}>Email</a>}
           </div>
@@ -151,42 +151,21 @@ export default function LeadDetail({ lead, data, actions, onClose }: Props) {
               </label>
             )}
 
-            {(stageOf(f.estado) === "ganado" || lead.contrato) && (
-              <div className="field">
-                <span className="label">Contrato</span>
-                <span className="muted hint">{lead.contrato ? `Adjunto en Notion: ${lead.contrato}` : "Sin contrato adjunto."}</span>
-                <input
-                  type="file"
-                  accept="application/pdf,image/*"
-                  aria-label="Subir contrato"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    if (file.size > 4 * 1024 * 1024) return actions.toast("El archivo supera los 4 MB", true);
-                    const form = new FormData();
-                    form.append("file", file);
-                    const res = await fetch(`/api/leads/${lead.id}/contrato`, { method: "POST", body: form }).catch(() => null);
-                    const j = await res?.json().catch(() => ({}));
-                    if (res?.ok) {
-                      actions.replace(j.lead);
-                      actions.toast("Contrato subido a Notion");
-                    } else actions.toast(`No se subió el contrato: ${j?.error ?? "sin conexión"}`, true);
-                  }}
-                />
-              </div>
-            )}
-
             <label className="check">
               <input type="checkbox" checked={f.whatsapp === true} onChange={(e) => save({ whatsapp: e.target.checked })} />
               WhatsApp enviado
             </label>
 
-            <label>
-              Comentarios
-              <textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={() => notes.trim() !== str(f.comentarios).trim() && save({ comentarios: notes })} />
-            </label>
-            {notes.trim() !== str(f.comentarios).trim() && (
-              <button className="btn primary small" onClick={() => save({ comentarios: notes })}>Guardar comentarios</button>
+          </section>
+
+          <section className="card inner">
+            <h3>Notas y contrato</h3>
+            <Comments leadId={lead.id} compose toast={actions.toast} />
+            {f.comentarios && (
+              <details>
+                <summary>Columna «Comentarios» de Notion</summary>
+                <p className="hint form-dump">{str(f.comentarios)}</p>
+              </details>
             )}
           </section>
 

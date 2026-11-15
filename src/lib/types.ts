@@ -30,8 +30,6 @@ export interface Lead {
   url?: string;
   edited: string;
   f: Fields;
-  /** Nombre del contrato adjunto, si lo hay */
-  contrato?: string | null;
 }
 
 export interface Option {
@@ -74,6 +72,41 @@ export interface Session {
   role: Role;
   code: string;
   exp: number;
+}
+
+/** Comentario de la página del lead en Notion (donde el equipo deja las notas y el contrato). */
+export interface Comment {
+  id: string;
+  at: string;
+  author: string;
+  text: string;
+  files: { name: string; url: string }[];
+}
+
+export type BonusMetric = "firmados" | "llamadas" | "contactos";
+export type BonusPeriod = "dia" | "semana" | "mes";
+
+/** Bono o premio que fija dirección: para todo el equipo (para = "") o para una persona. */
+export interface Bonus {
+  id: string;
+  title: string;
+  prize: string;
+  metric: BonusMetric;
+  goal: number;
+  period: BonusPeriod;
+  /** Código o nombre del comercial; vacío si es de todo el equipo */
+  para: string;
+  active: boolean;
+  /** Lo conseguido en el periodo actual (lo calcula el servidor) */
+  value?: number;
+}
+
+/** Aviso para llamar desde el móvil a un lead abierto en el ordenador. */
+export interface CallAlert {
+  id: string;
+  leadId: string;
+  name: string;
+  phone: string;
 }
 
 /** Una llamada (o un lead saltado) del modo «Llamar». */
