@@ -34,7 +34,7 @@ function useCode(): Rec | null {
 }
 
 const left = (n: number | null) =>
-  n === null ? "Este código ya está en su tramo más alto." : n === 1 ? "Falta 1 venta de fibra para completar su tramo." : `Faltan ${n} ventas de fibra para completar su tramo.`;
+  n === null ? "Este código ya está en el tramo más alto." : n === 1 ? "Falta 1 venta de fibra hasta cambiar de tramo." : `Faltan ${n} ventas de fibra hasta cambiar de tramo.`;
 
 /** Tarjeta con el código del día y las ventas de fibra que le faltan. No muestra importes. */
 export default function CodeHint({ big }: { big?: boolean }) {
