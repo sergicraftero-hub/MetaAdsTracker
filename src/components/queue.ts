@@ -34,10 +34,15 @@ const OWNER_GRACE = 15 * 60_000;
 const attempts = (l: Lead) => [l.f.intento1, l.f.intento2, l.f.intento3].filter(Boolean).length;
 const cbTime = (l: Lead) => parseWhen(l.f.rellamada)?.date.getTime() ?? 0;
 
-export function buildPools(leads: Lead[], handled: Set<string>, me: Session, now = Date.now()): Pools {
+/**
+ * `working`: códigos de los comerciales que han fichado hoy (null si no hay fichaje).
+ * Lo de un comercial que hoy no trabaja cuenta como de todos.
+ */
+export function buildPools(leads: Lead[], handled: Set<string>, me: Session, working: string[] | null = null, now = Date.now()): Pools {
+  const present = working?.map((c) => c.trim().toLowerCase());
   const mine = (l: Lead) => {
     const owner = str(l.f.comercial).trim().toLowerCase();
-    return me.role === "admin" || !owner || owner === me.code.trim().toLowerCase();
+    return me.role === "admin" || !owner || owner === me.code.trim().toLowerCase() || (!!present && !present.includes(owner));
   };
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);

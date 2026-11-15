@@ -79,11 +79,19 @@ export function isClosed(estado: unknown): boolean {
 }
 
 /** ¿Puede este usuario ver este lead? */
-export function canSee(me: Session, lead: Lead, unassignedVisible: boolean): boolean {
+/**
+ * `working` son los códigos de los comerciales que han fichado hoy (null si no hay fichaje configurado).
+ */
+export function canSee(me: Session, lead: Lead, unassignedVisible: boolean, working: string[] | null = null): boolean {
   if (me.role === "admin") return true;
   const owner = typeof lead.f.comercial === "string" ? lead.f.comercial.trim() : "";
   // Agenda compartida: una rellamada pendiente la puede atender quien esté de turno
   if (lead.f.rellamada && !isClosed(lead.f.estado)) return true;
   if (!owner) return unassignedVisible;
+  // Lo que aún no se ha conseguido contactar de un comercial que hoy no ha fichado pasa al resto del equipo
+  if (working && !working.some((c) => c.trim().toLowerCase() === owner.toLowerCase())) {
+    const st = stageOf(lead.f.estado);
+    if (st === "nuevo" || String(lead.f.estado).toUpperCase() === "ILOCALIZABLE") return true;
+  }
   return !!me.code && owner.toLowerCase() === me.code.trim().toLowerCase();
 }

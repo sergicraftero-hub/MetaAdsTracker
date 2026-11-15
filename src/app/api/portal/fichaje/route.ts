@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { HttpError, handle, requireSession } from "@/lib/auth";
 import { monthShifts, openShift, people, shiftValues, toShift } from "@/lib/portal";
 import { store } from "@/lib/store";
+import { resetWorking } from "@/lib/working";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export const POST = handle(async (req: Request) => {
   const { action } = (await req.json().catch(() => ({}))) as { action?: string };
   const now = new Date().toISOString();
   const open = await openShift(me.email);
+  resetWorking();
 
   if (action === "entrar") {
     if (open) throw new HttpError(409, "Ya tienes una jornada abierta");

@@ -24,6 +24,9 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
   if (!body.skipped) {
     const extra = cleanFields(body.fields ?? {}, me, current);
     const fields = { ...attemptFields(current, me, schema), ...extra };
+    // Quien consigue hablar con un lead que su comercial no había logrado contactar se lo queda
+    const uncontacted = stageOf(current.f.estado) === "nuevo" || String(current.f.estado).toUpperCase() === "ILOCALIZABLE";
+    if (me.code && current.f.comercial && current.f.comercial !== me.code && uncontacted) fields.comercial = me.code;
     // Al firmar, el lead entra en el seguimiento de contratos
     if (stageOf(fields.estado) === "ganado" && !current.f.estadoContrato && schema.estadoContrato.options?.some((o) => o.name === "FIRMADO")) {
       fields.estadoContrato = "FIRMADO";

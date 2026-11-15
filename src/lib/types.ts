@@ -203,6 +203,10 @@ export interface LeadsPayload {
   comerciales: string[];
   demo: boolean;
   syncedAt: string;
+  /** Códigos de los comerciales que han fichado y están trabajando (null si no hay fichaje configurado) */
+  working: string[] | null;
+  /** ¿Ha fichado la entrada quien pregunta? (null si no hay fichaje configurado) */
+  clockedIn: boolean | null;
   /** ¿Está conectado el WhatsApp compartido? */
   waReady: boolean;
   /** ¿Existe la base de datos donde se registran las llamadas? */

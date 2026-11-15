@@ -1,6 +1,7 @@
 import { HttpError } from "./auth";
 import { canSee } from "./fields";
 import { store, unassignedVisible } from "./store";
+import { working } from "./working";
 import { FIELD_KEYS } from "./types";
 import type { FieldKey, Fields, Lead, Schema, Session, Value } from "./types";
 
@@ -8,7 +9,8 @@ const KEYS = new Set<string>(FIELD_KEYS);
 
 export async function visibleLead(me: Session, id: string): Promise<Lead> {
   const lead = await store.getLead(id);
-  if (!lead || !canSee(me, lead, unassignedVisible())) throw new HttpError(404, "Lead no encontrado");
+  const w = me.role === "admin" ? null : await working();
+  if (!lead || !canSee(me, lead, unassignedVisible(), w?.ready ? w.codes : null)) throw new HttpError(404, "Lead no encontrado");
   return lead;
 }
 

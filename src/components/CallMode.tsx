@@ -13,6 +13,8 @@ interface Props {
   replaceLead: (l: Lead) => void;
   toast: (msg: string, error?: boolean) => void;
   onChat: (lead: Lead) => void;
+  /** Vuelve a cargar los datos (tras fichar la entrada) */
+  reload: () => void;
 }
 
 // El estado de la cola vive fuera del componente para que no se pierda al cambiar de pestaña
@@ -27,7 +29,7 @@ interface Current {
 }
 
 
-export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
+export default function CallMode({ data, replaceLead, toast, onChat, reload }: Props) {
   const [active, setActive] = useState(false);
   const [cur, setCur] = useState<Current | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,6 +43,8 @@ export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
   leadsRef.current = data.leads;
   const meRef = useRef(data.me);
   meRef.current = data.me;
+  const workingRef = useRef(data.working);
+  workingRef.current = data.working;
 
   if (session.day !== dayKey(new Date())) Object.assign(session, { handled: new Set<string>(), slot: 0, done: 0, day: dayKey(new Date()) });
 
@@ -50,7 +54,7 @@ export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const pools = useMemo(() => buildPools(data.leads, session.handled, data.me), [data.leads, data.me, cur?.id, Math.floor(tick / 20)]);
+  const pools = useMemo(() => buildPools(data.leads, session.handled, data.me, data.working), [data.leads, data.me, data.working, cur?.id, Math.floor(tick / 20)]);
   const lead = cur ? data.leads.find((l) => l.id === cur.id) : undefined;
 
   /** Busca el siguiente lead, lo reserva en Notion y lo enseña. */
@@ -61,7 +65,7 @@ export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
     setCbDate("");
     setCbTime("");
     for (let tries = 0; tries < 8; tries++) {
-      const pick = nextPick(buildPools(leadsRef.current, session.handled, meRef.current), session.slot);
+      const pick = nextPick(buildPools(leadsRef.current, session.handled, meRef.current, workingRef.current), session.slot);
       if (!pick) break;
       try {
         const { lead: fresh, edited } = await api<{ lead: Lead; edited: string }>(`/api/leads/${pick.lead.id}/reservar`, "POST");
@@ -69,7 +73,7 @@ export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
         leadsRef.current = leadsRef.current.map((l) => (l.id === fresh.id ? fresh : l));
         // Si alguien lo ha tocado mientras tanto y ya no toca llamarlo, se pasa al siguiente
         // (se conserva la fecha de edición anterior: reservarlo no cuenta como un intento reciente)
-        const still = nextPick(buildPools([{ ...fresh, edited: edited ?? pick.lead.edited }], session.handled, meRef.current), 0);
+        const still = nextPick(buildPools([{ ...fresh, edited: edited ?? pick.lead.edited }], session.handled, meRef.current, workingRef.current), 0);
         if (!still) {
           session.handled.add(fresh.id);
           continue;
@@ -143,6 +147,35 @@ export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
   const won = options.filter((o) => stageOf(o.name) === "ganado");
   const lost = options.filter((o) => stageOf(o.name) === "perdido");
 
+  /* ----- Sin fichar: los comerciales no entran en el reparto ----- */
+  if (data.clockedIn === false && data.me.role !== "admin") {
+    return (
+      <div className="call-wrap">
+        <section className="card call-start">
+          <h2 className="lead-name">Ficha la entrada para empezar</h2>
+          <p className="muted">Los leads se reparten entre quienes están trabajando. En cuanto fiches la entrada te empiezan a salir llamadas.</p>
+          <button
+            className="btn primary big"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await api("/api/portal/fichaje", "POST", { action: "entrar" });
+                toast("Entrada registrada");
+                reload();
+              } catch (e) {
+                toast((e as Error).message, true);
+              }
+              setBusy(false);
+            }}
+          >
+            Fichar entrada
+          </button>
+        </section>
+      </div>
+    );
+  }
+
   /* ----- Pantalla de inicio ----- */
   if (!active || !cur || !lead) {
     return (
@@ -214,7 +247,15 @@ export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
         </div>
 
         <div className="contact">
-          <CallButton lead={lead} className="btn primary big" toast={toast} onCall={() => setCur({ ...cur, called: true })}>
+          <CallButton lead={lead} className="btn primary big" toast={toast} onCall={() => {
+              setCur({ ...cur, called: true });
+              // Al pulsar «Llamar», un lead sin comercial pasa a ser de quien llama
+              if (!lead.f.comercial && data.me.code) {
+                api<{ lead: Lead }>(`/api/leads/${lead.id}`, "PATCH", { fields: { comercial: data.me.code } })
+                  .then((r) => replaceLead(r.lead))
+                  .catch(() => {});
+              }
+            }}>
             Llamar
           </CallButton>
           {data.waReady ? (
