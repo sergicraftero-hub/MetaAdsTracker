@@ -4,7 +4,7 @@ CRM de seguimiento comercial de leads. Es una app web instalable (PWA): el mismo
 
 ## Qué hace
 
-- **Llamar**: modo de llamadas en cola. Sale un lead cada vez con sus datos, sus respuestas y sus notas; al marcar el resultado se guarda en Notion y aparece el siguiente. El orden es 2 leads antiguos sin llamar, 1 nuevo, y así sucesivamente; las rellamadas con hora se cuelan cuando llega su hora y las atrasadas se intercalan una por ciclo. Cuando se acaban los leads sin llamar entran los ilocalizables. Al enseñar un lead se reserva para quien lo va a llamar (columna `COMERCIAL`). Arriba se ven los bonos en juego.
+- **Llamar**: modo de llamadas en cola. Sale un lead cada vez con sus datos, sus respuestas y sus notas; al marcar el resultado se guarda en Notion y aparece el siguiente. El orden es 2 leads antiguos sin llamar, 1 nuevo, y así sucesivamente; las rellamadas con hora se cuelan cuando llega su hora y las atrasadas se intercalan una por ciclo. Cuando se acaban los leads sin llamar entran los ilocalizables. Antes de enseñar un lead se reserva para quien lo va a llamar: mientras está reservado (hasta que se guarda el resultado, o 20 minutos) no le sale a nadie más, ni a otro comercial ni a dirección; si dos lo piden a la vez, solo uno lo recibe. Un lead sin comercial queda además asignado a quien le sale. Arriba se ven los bonos en juego.
 - **Agenda**: rellamadas por día. Son de todo el equipo: cada comercial ve las suyas y puede ver las de los demás; si el dueño no atiende una a su hora (15 minutos de margen), le sale en la cola a quien esté de turno.
 - **Leads**: buscador y filtros por estado y comercial; alta manual; dirección puede asignar varios leads de golpe a un comercial.
 - **Ficha**: llamar, WhatsApp y email; registrar intento (rellena `1ER/2DO/3ER_INTENTO`, `INTENTOS` y `FECHA_CONTACTO`); cambiar estado; programar rellamada; asignar comercial; notas y contrato.
@@ -17,7 +17,7 @@ CRM de seguimiento comercial de leads. Es una app web instalable (PWA): el mismo
   - *Fichaje*: entrada, descansos y salida con contador en marcha. La hora la pone el servidor. Cada trabajador ve y descarga su registro mensual (CSV); dirección ve el de todos. Solo dirección corrige un registro, con motivo obligatorio, y queda anotado quién, cuándo y el valor anterior. Cada registro lleva una firma: si alguien lo cambia directamente en Notion, la app lo marca como «Alterado».
   - *Vacaciones*: calendario para pedir vacaciones u otras ausencias; dirección aprueba o rechaza. Las ausencias aprobadas se ven en el calendario de todos.
   - *Nóminas*: dirección sube el PDF de cada trabajador y mes; cada uno descarga solo las suyas.
-  - *Avisos*: dirección tiene una campana arriba a la derecha con las solicitudes pendientes, para aprobar o rechazar con un clic.
+- **Avisos** (campana arriba a la derecha): al comercial le avisa de una rellamada suya que toca ahora, de un cliente suyo que escribe por WhatsApp, de su jornada si lleva más de 10 horas abierta, de solicitudes resueltas y de nóminas nuevas. A dirección, de las solicitudes pendientes (se aprueban o rechazan ahí mismo) y de quien no ha fichado la salida. Solo funcionan con la app abierta.
 - **Equipo** (solo dirección): usuarios (alta, edición, acceso y contraseña), bonos (uno para todo el equipo y otros individuales, con premio, meta y periodo) y comprobación de la conexión con Notion.
 
 **Roles.** Dirección ve todo y puede reasignar. Cada comercial ve los leads cuya columna `COMERCIAL` coincide con su código, las rellamadas pendientes de todo el equipo y, por defecto, también los leads que no tienen comercial (se le asignan cuando le salen en la cola). Para que solo vean los suyos: `COMERCIAL_VE_SIN_ASIGNAR=false`.
@@ -36,7 +36,7 @@ Los estados y comerciales se leen de las opciones de las columnas de Notion, as�
 
 ### Datos propios de la app
 
-La app guarda sus propios datos en bases de datos de Notion que crea ella sola dentro de una página llamada exactamente **BUT Calls**, compartida con la integración (`···` → *Conexiones*): «Usuarios», «Registro de llamadas», «Bonos», «Avisos de llamada», «WhatsApp enviados», «Fichajes», «Solicitudes» y «Nóminas». Cada una aparece la primera vez que hace falta.
+La app guarda sus propios datos en bases de datos de Notion que crea ella sola dentro de una página llamada exactamente **BUT Calls**, compartida con la integración (`···` → *Conexiones*): «Usuarios», «Registro de llamadas», «Bonos», «Avisos de llamada», «WhatsApp enviados», «Reservas de llamada», «Fichajes», «Solicitudes» y «Nóminas». Cada una aparece la primera vez que hace falta.
 
 En *Equipo → Añadir usuario* se da de alta a cada comercial con su código de la columna `COMERCIAL`. Las contraseñas se guardan cifradas (hash scrypt), nunca en claro.
 

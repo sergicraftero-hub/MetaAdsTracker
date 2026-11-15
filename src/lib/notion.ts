@@ -155,7 +155,7 @@ interface Cache {
   log: { entries: Map<string, CallLog>; from: number; syncAt: number };
   people?: { at: number; names: Map<string, string> };
 }
-type AppDb = "users" | "log" | "alerts" | "bonus" | "wa" | "fichajes" | "solicitudes" | "nominas";
+type AppDb = "users" | "log" | "alerts" | "bonus" | "wa" | "fichajes" | "solicitudes" | "nominas" | "locks";
 const g = globalThis as unknown as { __crmNotion?: Cache };
 const cache: Cache = (g.__crmNotion ??= { leads: new Map(), fullAt: 0, syncAt: 0, appDbs: {}, log: { entries: new Map(), from: Infinity, syncAt: 0 } });
 
@@ -309,6 +309,12 @@ const APP_DBS: Record<AppDb, { env: string; title: string; titleProp: string; pr
       Para: { rich_text: {} },
       Activo: { checkbox: {} },
     },
+  },
+  locks: {
+    env: "NOTION_LOCKS_DB_ID",
+    title: "BUT Calls · Reservas de llamada",
+    titleProp: "Lead",
+    props: { LeadId: { rich_text: {} }, Usuario: { rich_text: {} } },
   },
   fichajes: {
     env: "NOTION_FICHAJES_DB_ID",
@@ -745,4 +751,53 @@ export async function rowSet(kind: PortalTable, id: string, values: Record<strin
 
 export async function rowDel(id: string): Promise<void> {
   await api(`pages/${id}`, "PATCH", { archived: true });
+}
+
+/* ---------- Reserva de un lead mientras alguien lo está llamando ---------- */
+
+/** Tiempo durante el que un lead queda reservado para quien lo tiene en pantalla. */
+export const LOCK_MS = 20 * 60_000;
+
+async function activeLocks(dbId: string, leadId: string): Promise<{ id: string; user: string; at: string }[]> {
+  const res = await api(`databases/${dbId}/query`, "POST", {
+    page_size: 20,
+    filter: {
+      and: [
+        { property: "LeadId", rich_text: { equals: leadId } },
+        { timestamp: "created_time", created_time: { on_or_after: new Date(Date.now() - LOCK_MS - 60_000).toISOString() } },
+      ],
+    },
+  });
+  return (res.results as any[])
+    .map((p) => ({ id: p.id as string, user: String(readProp(p.properties?.Usuario) ?? ""), at: p.created_time as string }))
+    .filter((l) => Date.now() - new Date(l.at).getTime() < LOCK_MS)
+    .sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
+}
+
+/**
+ * Intenta reservar el lead para `user`. Devuelve false si otra persona lo tiene reservado.
+ * Tras crear la reserva se vuelve a mirar: si dos personas reservan a la vez, gana la primera y la otra se retira.
+ */
+export async function lockLead(leadId: string, name: string, user: string): Promise<boolean> {
+  const dbId = await appDb("locks");
+  if (!dbId) return true; // sin página «BUT Calls» no hay dónde anotar reservas
+  const before = await activeLocks(dbId, leadId);
+  if (before.some((l) => l.user !== user)) return false;
+  if (before.length) return true;
+  const mine = await api("pages", "POST", { parent: { database_id: dbId }, properties: { Lead: { title: richText(name) }, LeadId: text(leadId), Usuario: text(user) } });
+  const after = await activeLocks(dbId, leadId);
+  if (after.length && after[0].user !== user) {
+    await api(`pages/${mine.id}`, "PATCH", { archived: true }).catch(() => {});
+    return false;
+  }
+  return true;
+}
+
+/** Libera las reservas de este usuario sobre el lead (al guardar el resultado o saltarlo). */
+export async function unlockLead(leadId: string, user: string): Promise<void> {
+  const dbId = await appDb("locks");
+  if (!dbId) return;
+  for (const l of await activeLocks(dbId, leadId)) {
+    if (l.user === user) await api(`pages/${l.id}`, "PATCH", { archived: true }).catch(() => {});
+  }
 }

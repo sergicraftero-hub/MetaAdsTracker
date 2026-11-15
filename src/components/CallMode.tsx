@@ -64,12 +64,12 @@ export default function CallMode({ data, replaceLead, toast, onChat }: Props) {
       const pick = nextPick(buildPools(leadsRef.current, session.handled, meRef.current), session.slot);
       if (!pick) break;
       try {
-        const { lead: fresh } = await api<{ lead: Lead }>(`/api/leads/${pick.lead.id}/reservar`, "POST");
+        const { lead: fresh, edited } = await api<{ lead: Lead; edited: string }>(`/api/leads/${pick.lead.id}/reservar`, "POST");
         replaceLead(fresh);
         leadsRef.current = leadsRef.current.map((l) => (l.id === fresh.id ? fresh : l));
         // Si alguien lo ha tocado mientras tanto y ya no toca llamarlo, se pasa al siguiente
         // (se conserva la fecha de edición anterior: reservarlo no cuenta como un intento reciente)
-        const still = nextPick(buildPools([{ ...fresh, edited: pick.lead.edited }], session.handled, meRef.current), 0);
+        const still = nextPick(buildPools([{ ...fresh, edited: edited ?? pick.lead.edited }], session.handled, meRef.current), 0);
         if (!still) {
           session.handled.add(fresh.id);
           continue;

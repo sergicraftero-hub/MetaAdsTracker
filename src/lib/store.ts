@@ -56,6 +56,11 @@ export const store = {
     if (!isDemo()) await whapi.waMarkRead(messageId);
   },
 
+  /* Reserva de un lead mientras alguien lo está llamando */
+  lockLead: async (leadId: string, name: string, user: string): Promise<boolean> =>
+    isDemo() ? demo.lockLead(leadId, user) : notion.lockLead(leadId, name, user),
+  unlockLead: async (leadId: string, user: string): Promise<void> => (isDemo() ? demo.unlockLead(leadId, user) : notion.unlockLead(leadId, user)),
+
   /* Portal del empleado: tablas genéricas (las columnas se llaman como en Notion) */
   portalReady: async (): Promise<boolean> => isDemo() || notion.portalReady(),
   rowsList: async (kind: notion.PortalTable, filter?: unknown): Promise<notion.Row[]> =>

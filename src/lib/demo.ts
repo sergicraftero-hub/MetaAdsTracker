@@ -111,6 +111,7 @@ interface DemoState {
   wa: Map<string, WaMessage[]>;
   waLabels: Map<string, string[]>;
   waUnread: Map<string, boolean>;
+  locks: Map<string, { user: string; at: number }>;
   rows: Record<string, DemoRow[]>;
   n: number;
 }
@@ -151,6 +152,7 @@ function state(): DemoState {
     alerts: [],
     waLabels: new Map(),
     waUnread: new Map(),
+    locks: new Map(),
     rows: { fichajes: [], solicitudes: [], nominas: [] },
     wa: new Map(
       leads.slice(9, 14).map((l, i) => {
@@ -205,6 +207,17 @@ export const demo = {
         return { id, phone, name: names.get(phone) ?? "", at: last.at, unread: st.waUnread.has(id) ? (st.waUnread.get(id) ? -1 : 0) : last.fromMe ? 0 : 1, last: last.text || "[Documento]", lastFromMe: last.fromMe, labels: st.waLabels.get(id) ?? (st.wa.get(id)?.length === 3 ? ["Nuevo cliente"] : []) };
       })
       .sort((a, b) => b.at.localeCompare(a.at));
+  },
+  lockLead(leadId: string, user: string): boolean {
+    const st = state();
+    const cur = st.locks.get(leadId);
+    if (cur && cur.user !== user && Date.now() - cur.at < 20 * 60_000) return false;
+    st.locks.set(leadId, { user, at: Date.now() });
+    return true;
+  },
+  unlockLead(leadId: string, user: string) {
+    const st = state();
+    if (st.locks.get(leadId)?.user === user) st.locks.delete(leadId);
   },
   rowsList: (kind: string) => state().rows[kind] ?? [],
   rowGet(id: string): DemoRow {

@@ -211,7 +211,7 @@ export default function App() {
             )}
             <button className="btn small only-desktop" onClick={load} title="Actualizar">Actualizar</button>
             <button className="btn primary small" onClick={() => setCreating(true)}>+ Lead</button>
-            <Bell toast={toast} onGoPortal={() => setTab("portal")} />
+            <Bell data={data} toast={toast} onGoPortal={() => setTab("portal")} onGoWhatsApp={() => setTab("whatsapp")} onOpenLead={open} />
             <button
               className="btn small only-mobile"
               onClick={async () => {

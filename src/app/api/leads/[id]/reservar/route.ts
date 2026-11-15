@@ -11,11 +11,18 @@ import { store, unassignedVisible } from "@/lib/store";
 export const POST = handle(async (_req: Request, ctx: { params: Promise<{ id: string }> }) => {
   const me = await requireSession();
   const { id } = await ctx.params;
-  await visibleLead(me, id);
+  const cached = await visibleLead(me, id);
+  // Primero la reserva: si otra persona (comercial o dirección) lo tiene en pantalla, no se le enseña a nadie más
+  if (!(await store.lockLead(id, String(cached.f.nombre ?? ""), me.email))) throw new HttpError(409, "Otra persona está llamando a este lead");
   const fresh = await store.refreshLead(id);
-  if (!fresh || !canSee(me, fresh, unassignedVisible())) throw new HttpError(409, "Otro comercial ya tiene este lead");
-  if (!fresh.f.comercial && me.code) {
-    return NextResponse.json({ lead: await store.updateLead(id, { comercial: me.code }) });
+  if (!fresh || !canSee(me, fresh, unassignedVisible())) {
+    await store.unlockLead(id, me.email).catch(() => {});
+    throw new HttpError(409, "Otro comercial ya tiene este lead");
   }
-  return NextResponse.json({ lead: fresh });
+  // `edited` es la última modificación antes de esta reserva: el cliente la usa para saber si alguien lo acaba de llamar
+  const edited = fresh.edited;
+  if (!fresh.f.comercial && me.code) {
+    return NextResponse.json({ lead: await store.updateLead(id, { comercial: me.code }), edited });
+  }
+  return NextResponse.json({ lead: fresh, edited });
 });

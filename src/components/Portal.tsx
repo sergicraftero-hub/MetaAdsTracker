@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isClosed } from "@/lib/fields";
 import type { Leave, LeadsPayload, Payslip, Person, Shift } from "@/lib/types";
 import { api, dayKey } from "./util";
 
@@ -552,52 +553,128 @@ interface News {
   text: string;
   at: string;
 }
+interface OpenClock {
+  id: string;
+  name: string;
+  mine: boolean;
+  hours: number;
+}
+interface UnreadChat {
+  id: string;
+  name: string;
+  unread: number;
+  last: string;
+}
+interface BellProps {
+  data: LeadsPayload;
+  toast: Toast;
+  onGoPortal: () => void;
+  onGoWhatsApp: () => void;
+  onOpenLead: (id: string) => void;
+}
 const SEEN_KEY = "but-calls-avisos-vistos";
 
 /**
- * Campana de avisos, arriba a la derecha. Dirección ve las solicitudes pendientes y las aprueba a un clic.
- * Cada trabajador ve sus solicitudes resueltas y sus nóminas nuevas.
+ * Campana de avisos, arriba a la derecha.
+ * - Dirección: solicitudes pendientes (aprobar a un clic) y jornadas que alguien dejó abiertas.
+ * - Cada trabajador: rellamadas suyas que tocan ahora, clientes que le han escrito por WhatsApp,
+ *   su jornada si lleva demasiadas horas abierta, solicitudes resueltas y nóminas nuevas.
  */
-export function Bell({ toast, onGoPortal }: { toast: Toast; onGoPortal: () => void }) {
+export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: BellProps) {
   const [pending, setPending] = useState<Leave[]>([]);
   const [news, setNews] = useState<News[]>([]);
+  const [clock, setClock] = useState<OpenClock[]>([]);
+  const [chats, setChats] = useState<UnreadChat[]>([]);
   const [seen, setSeen] = useState(0);
   const [open, setOpen] = useState(false);
+  const [, setTick] = useState(0);
+  const announced = useRef<Set<string> | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const r = await api<{ pending: Leave[]; news: News[] }>("/api/portal/avisos");
+      const r = await api<{ pending: Leave[]; news: News[]; clock: OpenClock[] }>("/api/portal/avisos");
       setPending(r.pending);
       setNews(r.news);
+      setClock(r.clock ?? []);
     } catch {}
   }, []);
+  const loadChats = useCallback(async () => {
+    if (!data.waReady || !data.me.code) return;
+    try {
+      setChats((await api<{ chats: UnreadChat[] }>("/api/whatsapp/pendientes")).chats);
+    } catch {}
+  }, [data.waReady, data.me.code]);
+
   useEffect(() => {
     try {
       setSeen(Number(localStorage.getItem(SEEN_KEY)) || 0);
     } catch {}
     load();
-    const t = setInterval(() => document.visibilityState === "visible" && load(), 60_000);
+    loadChats();
+    const visible = () => document.visibilityState === "visible";
+    const t1 = setInterval(() => visible() && load(), 60_000);
+    const t2 = setInterval(() => visible() && loadChats(), 30_000);
+    const t3 = setInterval(() => setTick((n) => n + 1), 30_000); // para que las rellamadas salten a su hora
     window.addEventListener("portal-changed", load);
     return () => {
-      clearInterval(t);
+      clearInterval(t1);
+      clearInterval(t2);
+      clearInterval(t3);
       window.removeEventListener("portal-changed", load);
     };
-  }, [load]);
+  }, [load, loadChats]);
+
+  // Rellamadas propias con hora de hoy cuya hora ya ha llegado
+  const code = data.me.code.trim().toLowerCase();
+  const now = Date.now();
+  const startOfDay = new Date().setHours(0, 0, 0, 0);
+  const due = !code
+    ? []
+    : data.leads.filter((l) => {
+        const v = String(l.f.rellamada ?? "");
+        if (!v.includes("T") || isClosed(l.f.estado) || String(l.f.comercial ?? "").trim().toLowerCase() !== code) return false;
+        const t = new Date(v).getTime();
+        return t <= now && t >= startOfDay;
+      });
+
+  // Aviso emergente la primera vez que aparece una rellamada o un mensaje nuevo
+  useEffect(() => {
+    const keys = [...due.map((l) => `r:${l.id}:${l.f.rellamada}`), ...chats.map((c) => `w:${c.id}:${c.unread}`)];
+    if (announced.current === null) {
+      announced.current = new Set(keys); // lo que ya estaba al abrir la app no se anuncia
+      return;
+    }
+    for (const l of due) {
+      const k = `r:${l.id}:${l.f.rellamada}`;
+      if (!announced.current.has(k)) toast(`📞 Te toca rellamar a ${String(l.f.nombre ?? "un lead")}`);
+      announced.current.add(k);
+    }
+    for (const c of chats) {
+      const k = `w:${c.id}:${c.unread}`;
+      if (!announced.current.has(k)) toast(`💬 ${c.name} te ha escrito por WhatsApp`);
+      announced.current.add(k);
+    }
+  });
 
   const fresh = news.filter((n) => new Date(n.at).getTime() > seen);
-  const count = pending.length + fresh.length;
+  const count = pending.length + fresh.length + due.length + chats.length + clock.length;
+  const empty = !pending.length && !news.length && !due.length && !chats.length && !clock.length;
 
   function toggle() {
     if (open && fresh.length) {
       // Al cerrar el panel, los avisos informativos quedan como vistos en este dispositivo
-      const now = Date.now();
-      setSeen(now);
+      const t = Date.now();
+      setSeen(t);
       try {
-        localStorage.setItem(SEEN_KEY, String(now));
+        localStorage.setItem(SEEN_KEY, String(t));
       } catch {}
     }
     setOpen(!open);
   }
+  const go = (fn: () => void) => () => {
+    toggle();
+    fn();
+  };
 
   return (
     <div className="bell">
@@ -610,8 +687,32 @@ export function Bell({ toast, onGoPortal }: { toast: Toast; onGoPortal: () => vo
       {open && (
         <div className="card bell-panel" role="dialog" aria-label="Avisos">
           <h2>Avisos</h2>
-          {pending.length === 0 && news.length === 0 && <p className="muted hint">No tienes avisos.</p>}
+          {empty && <p className="muted hint">No tienes avisos.</p>}
           <ul className="bonus-admin">
+            {due.map((l) => (
+              <li key={`r${l.id}`}>
+                <button className="news" onClick={go(() => onOpenLead(l.id))}>
+                  <span>📞 Te toca rellamar a <strong>{String(l.f.nombre ?? "")}</strong></span>
+                  <span className="muted hint">Programada a las {time(String(l.f.rellamada))}</span>
+                </button>
+              </li>
+            ))}
+            {chats.map((c) => (
+              <li key={`w${c.id}`}>
+                <button className="news" onClick={go(onGoWhatsApp)}>
+                  <span>💬 <strong>{c.name}</strong> te ha escrito{c.unread > 1 ? ` (${c.unread})` : ""}</span>
+                  <span className="muted hint">{c.last}</span>
+                </button>
+              </li>
+            ))}
+            {clock.map((c) => (
+              <li key={`c${c.id}`}>
+                <button className="news" onClick={go(onGoPortal)}>
+                  <span>⏰ {c.mine ? "Tu jornada sigue abierta" : <><strong>{c.name}</strong> no ha fichado la salida</>}</span>
+                  <span className="muted hint">Lleva {c.hours} h abierta. {c.mine ? "¿Olvidaste fichar la salida?" : "Puedes corregirla en Portal → Fichaje."}</span>
+                </button>
+              </li>
+            ))}
             {pending.map((r) => (
               <li key={r.id}>
                 <div>
@@ -627,13 +728,7 @@ export function Bell({ toast, onGoPortal }: { toast: Toast; onGoPortal: () => vo
             ))}
             {news.map((n) => (
               <li key={n.id} className={new Date(n.at).getTime() > seen ? "" : "off"}>
-                <button
-                  className="news"
-                  onClick={() => {
-                    toggle();
-                    onGoPortal();
-                  }}
-                >
+                <button className="news" onClick={go(onGoPortal)}>
                   <span>{n.kind === "nomina" ? "📄" : n.kind === "aprobada" ? "✅" : "❌"} {n.text}</span>
                   <span className="muted hint">{new Date(n.at).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}</span>
                 </button>

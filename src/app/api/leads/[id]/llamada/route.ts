@@ -51,5 +51,6 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
     console.error("No se pudo registrar la llamada", e);
     logged = false;
   }
+  await store.unlockLead(id, me.email).catch(() => {});
   return NextResponse.json({ lead, logged });
 });
