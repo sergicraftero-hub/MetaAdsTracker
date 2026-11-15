@@ -1,5 +1,4 @@
 import { HttpError } from "./auth";
-import { stageOf } from "./fields";
 import type { Bonus, BonusPeriod, CallLog, Session } from "./types";
 
 const NO_CONTACT = new Set(["ILOCALIZABLE", "NUMERO ERRONEO", "SALTADO", ""]);
@@ -20,12 +19,26 @@ const same = (a: string, b: string) => !!a && a.trim().toLowerCase() === b.trim(
 export const isFor = (b: Bonus, me: Session) => !b.para || same(b.para, me.code) || same(b.para, me.name);
 
 /** Lo conseguido en el periodo actual: del equipo entero o solo de la persona del bono. */
-export function progress(b: Bonus, log: CallLog[]): number {
+export interface FiberSale {
+  date: string;
+  comercial: string;
+  /** Fibra principal, de primera residencia y sin baja: lo único que cuenta para objetivos */
+  baf: boolean;
+}
+
+/**
+ * Lo conseguido en el periodo. Los firmados salen de las contrataciones y solo cuentan las fibras de primera
+ * residencia que no se han caído: ni líneas móviles, ni segundas residencias, ni bajas o no instaladas.
+ */
+export function progress(b: Bonus, log: CallLog[], sales: FiberSale[] = []): number {
   const from = periodStart(b.period).getTime();
+  if (b.metric === "firmados") {
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date(from));
+    return sales.filter((s) => s.baf && s.date >= day && (!b.para || same(b.para, s.comercial))).length;
+  }
   return log.filter((r) => {
     if (new Date(r.at).getTime() < from || r.result === "SALTADO") return false;
     if (b.para && !same(b.para, r.code) && !same(b.para, r.user)) return false;
-    if (b.metric === "firmados") return stageOf(r.result) === "ganado";
     if (b.metric === "contactos") return !NO_CONTACT.has(r.result.toUpperCase());
     return true;
   }).length;

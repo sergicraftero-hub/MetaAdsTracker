@@ -17,7 +17,7 @@ export const realOf = (alias: string, codes: string[]) => codes[Number(alias.rep
 
 /* ---------- Fila de Notion → contratación ---------- */
 
-export function toSale(r: SegRow, codes: string[]): Sale & { paid: boolean; commission: number; baf: boolean; realCode: string } {
+export function toSale(r: SegRow, codes: string[]): Sale & { paid: boolean; commission: number; baf: boolean; realCode: string; fiber: boolean } {
   let products: string[] = [];
   try {
     const list = JSON.parse(str(r.productos) || "[]");
@@ -55,12 +55,14 @@ export function toSale(r: SegRow, codes: string[]): Sale & { paid: boolean; comm
     // Una baja no cobra ni cuenta
     commission: baja ? 0 : Number(r.comision ?? 0) || 0,
     baf: !baja && primary && hasFiber,
+    fiber: hasFiber,
   };
 }
 
 /** Lo que ve un comercial de una contratación: sin dinero ni nombre real del código. */
 export function forSeller(s: Sale): Sale {
-  const { commission: _c, paid: _p, baf: _b, realCode: _r, ...rest } = s;
+  const { commission: _c, paid: _p, baf: _b, realCode: _r, ...rest } = s as Sale & { fiber?: boolean };
+  delete rest.fiber;
   return rest;
 }
 

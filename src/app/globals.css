@@ -660,3 +660,14 @@ tr.is-baja { opacity: 0.55; }
 .modal.preview iframe, .modal.preview img { flex: 1; width: 100%; min-height: 0; border: 1px solid var(--border); border-radius: 10px; background: #fff; object-fit: contain; }
 .modal.wide { max-height: 92vh; }
 .table-wrap td.cell-actions { white-space: nowrap; }
+
+/* ---------- Origen del dinero y perfil de leads ---------- */
+.split { display: flex; gap: 2px; height: 16px; border-radius: 99px; overflow: hidden; margin: 10px 0 8px; }
+.split span { min-width: 6px; transition: flex-grow 0.6s var(--ease); }
+.split .s1 { background: var(--series); }
+.split .s2 { background: var(--series-2); }
+.split-legend { flex-wrap: wrap; gap: 6px 18px; font-size: 14px; color: var(--text); margin-bottom: 6px; }
+.mini-select { width: auto; min-height: 36px; padding: 4px 10px; font-size: 14px; }
+.barlist.profile li { grid-template-columns: minmax(110px, 230px) 1fr 52px 92px; }
+.profile-conv { text-align: right; }
+@media (max-width: 560px) { .barlist.profile li { grid-template-columns: minmax(90px, 130px) 1fr 46px; } .profile-conv { display: none; } }

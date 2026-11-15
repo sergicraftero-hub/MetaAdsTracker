@@ -16,16 +16,36 @@ export const GET = handle(async (req: Request) => {
   const [{ codes, sales, ignored }, options] = await Promise.all([allSales(), store.segOptions()]);
   const summary = summarize(codes, sales, month);
   const ofMonth = sales.filter((s) => monthOf(s.date) === month);
-  const sellers = new Map<string, { name: string; sales: number; fibers: number; commission: number }>();
+  // Por comercial: cuántas ventas cuentan para objetivos (fibra de primera residencia) y cuáles no
+  const sellers = new Map<string, { name: string; sales: number; fibers: number; lines: number; second: number; commission: number }>();
   for (const s of ofMonth) {
     const k = s.comercial || "Sin comercial";
-    const cur = sellers.get(k) ?? { name: k, sales: 0, fibers: 0, commission: 0 };
+    const cur = sellers.get(k) ?? { name: k, sales: 0, fibers: 0, lines: 0, second: 0, commission: 0 };
     if (!s.baja) cur.sales++;
     if (s.baf) cur.fibers++;
+    else if (!s.baja && s.fiber) cur.second++;
+    else if (!s.baja) cur.lines++;
     cur.commission += s.commission;
     sellers.set(k, cur);
   }
+  // De qué productos sale la comisión del mes
+  const mix = new Map<string, { name: string; units: number; commission: number }>();
+  for (const s of ofMonth) {
+    if (s.baja) continue;
+    const items: [string, string, number][] = s.products.length
+      ? s.products.map((id) => [id, `${PRODUCT.get(id)?.family ?? ""}: ${PRODUCT.get(id)?.name ?? id}`, PRODUCT.get(id)?.commission ?? 0])
+      : [["", "Ventas antiguas sin detallar", s.commission]];
+    for (const [id, name, commission] of items) {
+      const cur = mix.get(id) ?? { name, units: 0, commission: 0 };
+      cur.units++;
+      cur.commission += commission;
+      mix.set(id, cur);
+    }
+  }
+  const live = ofMonth.filter((s) => !s.baja);
   return NextResponse.json({
+    products: [...mix.values()].sort((a, b) => b.commission - a.commission),
+    counts: { sales: live.length, fibers: live.filter((s) => s.baf).length, second: live.filter((s) => !s.baf && s.fiber).length, lines: live.filter((s) => !s.fiber).length, dropped: ofMonth.length - live.length },
     month,
     sales: ofMonth,
     summary,

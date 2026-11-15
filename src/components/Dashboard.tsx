@@ -96,6 +96,46 @@ function Breakdown({ title, groups, folded }: { title: string; groups: Map<strin
 }
 
 
+const PROFILE: [key: "compania" | "cuantoPaga" | "quiereTele" | "titular", label: string][] = [
+  ["compania", "Compañía actual"],
+  ["cuantoPaga", "Lo que paga al mes"],
+  ["quiereTele", "Tele que quiere"],
+  ["titular", "Si es el titular"],
+];
+
+/** Cómo son los leads que entran: reparto en porcentaje según lo que contestaron en el formulario. */
+function LeadProfile({ leads }: { leads: Lead[] }) {
+  const [dim, setDim] = useState<(typeof PROFILE)[number][0]>("compania");
+  const rows = [...groupBy(leads, (l) => pretty(l.f[dim]) || "Sin respuesta").entries()]
+    .map(([name, ls]) => ({ name, n: ls.length, won: ls.filter(won).length }))
+    .sort((a, b) => b.n - a.n);
+  const max = Math.max(1, ...rows.map((r) => r.n));
+  return (
+    <section className="card">
+      <div className="between">
+        <h2>Cómo son los leads que entran</h2>
+        <select className="mini-select" value={dim} onChange={(e) => setDim(e.target.value as typeof dim)} aria-label="Qué mirar">
+          {PROFILE.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+        </select>
+      </div>
+      {rows.length === 0 ? (
+        <p className="muted empty-line">Sin leads en este periodo.</p>
+      ) : (
+        <ul className="barlist profile">
+          {rows.map((r) => (
+            <li key={r.name} title={`${r.name}: ${r.n} leads, ${r.won} firmados`}>
+              <span className="bar-name cap">{r.name}</span>
+              <span className="bar-track"><span className="bar-fill" style={{ width: `${(r.n / max) * 100}%` }} /></span>
+              <span className="bar-value">{pct(r.n, leads.length)}</span>
+              <span className="muted hint profile-conv">{r.won ? `${pct(r.won, r.n)} firma` : "—"}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 interface Bucket {
   key: string;
   label: string;
@@ -336,8 +376,7 @@ function ManagerDashboard({ data, onOpenLead }: { data: LeadsPayload; onOpenLead
         )}
       </section>
 
-      <Breakdown folded title="Conversión por compañía actual" groups={groupBy(leads, (l) => pretty(l.f.compania) || "—")} />
-      <Breakdown folded title="Conversión por lo que paga al mes" groups={groupBy(leads, (l) => pretty(l.f.cuantoPaga) || "—")} />
+      <LeadProfile leads={leads} />
 
       <h2 className="section-title">Actividad del equipo</h2>
       <Activity data={data} onOpenLead={onOpenLead} />

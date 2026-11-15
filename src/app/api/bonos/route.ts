@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { HttpError, handle, requireSession } from "@/lib/auth";
 import { cleanBonus, isFor, periodStart, progress } from "@/lib/bonus";
+import { allSales } from "@/lib/sales";
 import { store } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,9 @@ export const GET = handle(async () => {
   const all = ready ? await store.listBonuses() : [];
   const mine = me.role === "admin" ? all : all.filter((b) => b.active && isFor(b, me));
   const log = mine.length && (await store.logConfigured()) ? await store.getLog(periodStart("mes").getTime()) : [];
-  return NextResponse.json({ ready, bonuses: mine.map((b) => ({ ...b, value: progress(b, log) })) });
+  // Las fibras firmadas salen de las contrataciones («Seguimiento O2»)
+  const sales = mine.some((b) => b.metric === "firmados") ? await allSales().then((r) => r.sales).catch(() => []) : [];
+  return NextResponse.json({ ready, bonuses: mine.map((b) => ({ ...b, value: progress(b, log, sales) })) });
 });
 
 export const POST = handle(async (req: Request) => {

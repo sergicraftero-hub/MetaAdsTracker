@@ -128,6 +128,8 @@ export interface Sale {
   paid?: boolean;
   commission?: number;
   baf?: boolean;
+  /** La venta incluye fibra principal */
+  fiber?: boolean;
 }
 
 /** Lo que la app lee de un contrato de O2 en PDF. */

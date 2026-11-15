@@ -5,7 +5,7 @@ import { useDialogs } from "./Dialogs";
 import Icon from "./Icon";
 import { api } from "./util";
 
-const METRIC = { firmados: "firmados", llamadas: "llamadas", contactos: "contactos" } as const;
+const METRIC = { firmados: "fibras firmadas", llamadas: "llamadas", contactos: "contactos" } as const;
 const PERIOD = { dia: "hoy", semana: "esta semana", mes: "este mes" } as const;
 const PERIOD_NAME = { dia: "Cada día", semana: "Cada semana", mes: "Cada mes" } as const;
 
@@ -117,7 +117,7 @@ export function BonusAdmin({ data, people, toast }: { data: LeadsPayload; people
       <h2>Bonos</h2>
       <p className="muted hint">
         Un bono «de todo el equipo» suma lo de todos, incluida dirección si llama. Uno individual solo cuenta lo de esa persona.
-        El progreso sale de las llamadas hechas en la pestaña Llamar.
+        Las fibras firmadas salen de Contrataciones y solo cuentan las de primera residencia que siguen en pie (ni líneas, ni segundas residencias, ni bajas). Llamadas y contactos salen de la pestaña Llamar.
       </p>
       {!state ? (
         <p className="muted">Cargando…</p>
@@ -179,7 +179,7 @@ export function BonusAdmin({ data, people, toast }: { data: LeadsPayload; people
               <label>
                 Qué cuenta
                 <select value={form.metric} onChange={(e) => setForm({ ...form, metric: e.target.value })}>
-                  <option value="firmados">Firmados</option>
+                  <option value="firmados">Fibras firmadas (primera residencia)</option>
                   <option value="contactos">Contactos (llamadas con respuesta)</option>
                   <option value="llamadas">Llamadas</option>
                 </select>

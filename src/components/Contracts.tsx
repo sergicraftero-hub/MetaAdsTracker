@@ -23,7 +23,9 @@ interface Data {
   month: string;
   sales: Sale[];
   summary: CodeSummary[];
-  sellers: { name: string; sales: number; fibers: number; commission: number }[];
+  sellers: { name: string; sales: number; fibers: number; lines: number; second: number; commission: number }[];
+  products: { name: string; units: number; commission: number }[];
+  counts: { sales: number; fibers: number; second: number; lines: number; dropped: number };
   totals: { commission: number; lots: number; quarter: number };
   catalog: Product[];
   codes: { alias: string; real: string }[];
@@ -126,6 +128,40 @@ export default function Contracts({ toast }: { data: LeadsPayload; toast: Toast 
       </div>
 
       <section className="card">
+        <h2>De dónde viene el dinero</h2>
+        {total > 0 ? (
+          <>
+            <div className="split" role="img" aria-label={`Ventas ${eur(data.totals.commission)}, rápel por lotes ${eur(data.totals.lots)}`}>
+              {data.totals.commission > 0 && <span className="s1" style={{ flexGrow: data.totals.commission }} />}
+              {data.totals.lots > 0 && <span className="s2" style={{ flexGrow: data.totals.lots }} />}
+            </div>
+            <div className="legend split-legend">
+              <span><i className="sw s1" /> Ventas (comisiones): <b>{eur(data.totals.commission)}</b> · {Math.round((data.totals.commission / total) * 100)} %</span>
+              <span><i className="sw s2" /> Rápel por lotes: <b>{eur(data.totals.lots)}</b> · {Math.round((data.totals.lots / total) * 100)} %</span>
+            </div>
+          </>
+        ) : (
+          <p className="muted empty-line">Sin ventas este mes.</p>
+        )}
+        <p className="muted hint">El rápel trimestral ({eur(data.totals.quarter)} en el trimestre en curso) va aparte, porque no es de un solo mes.</p>
+        {data.products.length > 0 && (
+          <details>
+            <summary>Ver por producto</summary>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Producto</th><th>Unidades</th><th>Comisión</th></tr></thead>
+                <tbody>
+                  {data.products.map((p) => (
+                    <tr key={p.name}><th scope="row">{p.name}</th><td>{p.units}</td><td>{eur(p.commission)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        )}
+      </section>
+
+      <section className="card">
         <div className="between">
           <h2>Por código</h2>
           <button className="btn small" onClick={addCode}>Añadir código</button>
@@ -168,14 +204,20 @@ export default function Contracts({ toast }: { data: LeadsPayload; toast: Toast 
 
       <section className="card">
         <h2>Por comercial</h2>
+        <p className="muted hint">
+          Para objetivos y rápeles solo cuentan las fibras de primera residencia que siguen en pie: {data.counts.fibers} de {data.counts.sales} ventas este mes
+          {data.counts.second ? ` · ${data.counts.second} de segunda residencia` : ""}
+          {data.counts.lines ? ` · ${data.counts.lines} solo de líneas` : ""}
+          {data.counts.dropped ? ` · ${data.counts.dropped} de baja o no instaladas` : ""}.
+        </p>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Comercial</th><th>Ventas</th><th>Fibras</th><th>Comisiones</th></tr></thead>
+            <thead><tr><th>Comercial</th><th>Ventas</th><th>Fibras que cuentan</th><th>2.ª residencia</th><th>Solo líneas</th><th>Comisiones</th></tr></thead>
             <tbody>
               {data.sellers.map((s) => (
-                <tr key={s.name}><th scope="row">{s.name}</th><td>{s.sales}</td><td>{s.fibers}</td><td>{eur(s.commission)}</td></tr>
+                <tr key={s.name}><th scope="row">{s.name}</th><td>{s.sales}</td><td><b>{s.fibers}</b></td><td>{s.second}</td><td>{s.lines}</td><td>{eur(s.commission)}</td></tr>
               ))}
-              {data.sellers.length === 0 && <tr><td colSpan={4} className="muted">Sin ventas este mes.</td></tr>}
+              {data.sellers.length === 0 && <tr><td colSpan={6} className="muted">Sin ventas este mes.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -199,13 +241,13 @@ export default function Contracts({ toast }: { data: LeadsPayload; toast: Toast 
                     {s.products.length ? s.products.map((id) => byId.get(id)?.name ?? id).join(" + ") : <span className="muted">Sin detallar</span>}
                     <span className="muted hint block">
                       {s.origin === "Movistar" ? "De Movistar" : "No Movistar"}
-                      {s.primary ? " · 1.ª residencia" : " · no cuenta para extras"}
+                      {s.fiber === false ? " · solo líneas (no cuenta)" : s.primary ? " · 1.ª residencia" : " · 2.ª residencia (no cuenta)"}
                     </span>
                   </td>
                   <td className="left">
                     <span className="result-cell">
                       {s.state || "—"}
-                      {s.baja && <span className="pill warn">Baja</span>}
+                      {s.baja && <span className="pill warn">Baja o no instalado</span>}
                       {s.paid && <span className="pill on">Cobrado</span>}
                     </span>
                   </td>
@@ -288,7 +330,7 @@ export default function Contracts({ toast }: { data: LeadsPayload; toast: Toast 
               <div className="field">
                 <label className="check"><input type="checkbox" checked={edit.primary} onChange={(e) => setEdit({ ...edit, primary: e.target.checked })} />Primera residencia</label>
                 <label className="check"><input type="checkbox" checked={!!edit.paid} onChange={(e) => setEdit({ ...edit, paid: e.target.checked })} />Cobrado</label>
-                <label className="check"><input type="checkbox" checked={edit.baja} onChange={(e) => setEdit({ ...edit, baja: e.target.checked })} />Baja (deja de contar)</label>
+                <label className="check"><input type="checkbox" checked={edit.baja} onChange={(e) => setEdit({ ...edit, baja: e.target.checked })} />Baja o no instalado (deja de cobrar y de contar)</label>
               </div>
             </div>
             <label>Comentarios<textarea rows={2} value={edit.comments} onChange={(e) => setEdit({ ...edit, comments: e.target.value })} /></label>
