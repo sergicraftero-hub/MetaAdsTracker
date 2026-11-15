@@ -93,7 +93,7 @@ export async function waHealth(): Promise<{ ok: boolean; status: string; phone: 
   return { ok: status === "AUTH", status, phone: String(h?.user?.phone ?? h?.user?.id ?? "").replace(/@.*/, "") };
 }
 
-export async function waChats(count = 80): Promise<WaChat[]> {
+export async function waChats(count = 150): Promise<WaChat[]> {
   const res = await json(`/chats?count=${count}`);
   return ((res.chats ?? []) as any[])
     .filter((c) => c.type === "contact" || String(c.id).endsWith("@s.whatsapp.net"))
@@ -102,7 +102,8 @@ export async function waChats(count = 80): Promise<WaChat[]> {
       return {
         id: String(c.id),
         phone: String(c.phone ?? String(c.id).replace(/@.*/, "")),
-        name: String(c.name ?? ""),
+        // Whapi no siempre da el nombre del chat: se usa el del remitente del último mensaje recibido
+        name: String(c.name ?? (c.last_message && !c.last_message.from_me ? (c.last_message.from_name ?? "") : "")),
         at: new Date(Number(c.timestamp ?? c.last_message?.timestamp ?? 0) * 1000).toISOString(),
         unread: Number(c.unread ?? 0),
         last: last ? last.text || (last.file ? `[${last.file.kind}]` : "") : "",
