@@ -143,25 +143,96 @@ export function summarize(codes: string[], sales: Full[], month: string, cat: Ca
   });
 }
 
+/* ---------- En qué código cargar: plan del mes ---------- */
+
+const FORECAST_ROW = "__prevision";
+
+/** Fibras que quedan por vender este mes: lo que ha fijado dirección o, si no, lo que sale del ritmo actual. */
+export async function forecast(summary: CodeSummary[], month: string): Promise<{ extra: number; auto: number; manual: boolean }> {
+  const today = todayMadrid();
+  const [y, m] = month.split("-").map(Number);
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const day = monthOf(today) === month ? Number(today.slice(8, 10)) : days;
+  const sold = summary.filter((s) => s.realCode).reduce((a, s) => a + s.monthBaf, 0);
+  const auto = Math.max(0, Math.round((sold / Math.max(1, day)) * (days - day)));
+  try {
+    const rows = await store.rowsList("ajustes", { property: "Usuario", title: { equals: FORECAST_ROW } });
+    const saved = JSON.parse(str(rows.find((r) => str(r.Usuario) === FORECAST_ROW)?.Plantillas) || "null");
+    if (saved && saved.month === month && Number.isFinite(saved.extra)) return { extra: Math.max(0, Math.round(saved.extra)), auto, manual: true };
+  } catch {}
+  return { extra: auto, auto, manual: false };
+}
+
+/** Dirección fija (o quita, con null) cuántas fibras espera vender aún este mes. */
+export async function setForecast(month: string, extra: number | null): Promise<void> {
+  const rows = await store.rowsList("ajustes", { property: "Usuario", title: { equals: FORECAST_ROW } });
+  const row = rows.find((r) => str(r.Usuario) === FORECAST_ROW);
+  const json = JSON.stringify(extra === null ? {} : { month, extra });
+  if (row) await store.rowSet("ajustes", row.id, { Plantillas: json });
+  else await store.rowAdd("ajustes", { Usuario: FORECAST_ROW, Plantillas: json });
+}
+
+export interface Plan {
+  /** Código en el que cargar la próxima venta */
+  code: string;
+  why: string;
+  /** Fibras que el plan lleva a cada código y hasta dónde lo deja */
+  steps: { code: string; add: number; reach: number; gain: number }[];
+  /** Rápel extra que se gana con el plan */
+  gain: number;
+}
+
 /**
- * En qué código conviene cargar una venta nueva para ganar más.
- * Cada código puntúa por los euros que da su siguiente tramo repartidos entre las fibras que le faltan
- * (lotes del mes y, si la venta no viene de Movistar, también el trimestral). Así se llenan primero los
- * tramos que más rinden por venta: por ejemplo, 4 + 4 + 4 antes que 12 en un solo código.
+ * Reparto de las próximas `extra` fibras entre los códigos que da más rápel EN TOTAL.
+ * Los tramos son importes totales (llegar a 11 son 1.100 €, no 450 + 1.100), así que lo que vale cada
+ * tramo es la diferencia con lo que el código ya tiene ganado. No basta mirar el siguiente tramo de cada
+ * código: con 7 ventas por delante puede rendir más llevar un código de 4 a 11 que otro de 16 a 21.
+ * Si la venta no viene de Movistar, suma también lo que se gana en el rápel trimestral.
  */
-export function recommend(summary: CodeSummary[], origin: SaleOrigin): { code: string; why: string } {
-  const list = summary.filter((s) => s.realCode);
-  if (!list.length) return { code: "", why: "" };
-  let best = { code: list[0].code, score: -1, why: "" };
-  for (const s of list) {
-    const lots = s.lotsNext ? (s.lotsNext.amount - s.lots) / s.lotsNext.need : 0;
-    const quarter = origin !== "Movistar" && s.quarterNext ? (s.quarterNext.amount - s.quarter) / s.quarterNext.need : 0;
-    if (lots + quarter > best.score) {
-      const why = s.lotsNext
-        ? `Le ${s.lotsNext.need === 1 ? "falta 1 fibra" : `faltan ${s.lotsNext.need} fibras`} para el tramo de ${s.lotsNext.amount} € de este mes.`
-        : "Ya está en el tramo más alto de lotes este mes.";
-      best = { code: s.code, score: lots + quarter, why };
+export function plan(summary: CodeSummary[], cat: Catalog, extra: number, origin: SaleOrigin): Plan {
+  const codes = summary.filter((s) => s.realCode);
+  if (!codes.length) return { code: "", why: "", steps: [], gain: 0 };
+  const R = Math.min(Math.max(0, extra), 120);
+  const value = (s: CodeSummary, x: number) =>
+    tier(cat.lots, s.monthBaf + x) - s.lots + (origin !== "Movistar" ? tier(cat.quarter, s.quarterBaf + x) - s.quarter : 0);
+  // Programación dinámica: best[r] = mejor ganancia usando r ventas entre los códigos vistos
+  let best: { gain: number; alloc: number[] }[] = Array.from({ length: R + 1 }, () => ({ gain: 0, alloc: [] }));
+  for (const s of codes) {
+    const next = Array.from({ length: R + 1 }, () => ({ gain: -1, alloc: [] as number[] }));
+    for (let r = 0; r <= R; r++) {
+      for (let x = 0; x <= r; x++) {
+        const g = best[r - x].gain + value(s, x);
+        // A igual ganancia se queda con el reparto que menos ventas mete en este código
+        if (g > next[r].gain) next[r] = { gain: g, alloc: [...best[r - x].alloc, x] };
+      }
     }
+    best = next;
   }
-  return { code: best.code, why: best.why };
+  // Entre los repartos de máxima ganancia, el que menos ventas necesita
+  let top = best[0];
+  for (let r = 1; r <= R; r++) if (best[r].gain > top.gain) top = best[r];
+  const steps = codes
+    .map((s, i) => ({ code: s.code, add: top.alloc[i] ?? 0, reach: s.monthBaf + (top.alloc[i] ?? 0), gain: value(s, top.alloc[i] ?? 0), need: s.lotsNext?.need ?? Infinity }))
+    .filter((x) => x.add > 0);
+
+  if (!steps.length) {
+    // Con las ventas previstas no se alcanza ningún tramo: se apunta al que queda más cerca
+    const near = [...codes].sort((a, b) => (a.lotsNext?.need ?? Infinity) - (b.lotsNext?.need ?? Infinity))[0];
+    return {
+      code: near.code,
+      why: near.lotsNext
+        ? `Con las ventas previstas no se llega a ningún tramo nuevo. El más cercano es el de ${near.code}: le faltan ${near.lotsNext.need} fibras para ${near.lotsNext.amount} €.`
+        : "Todos los códigos están ya en su tramo más alto.",
+      steps: [],
+      gain: 0,
+    };
+  }
+  // Se empieza por el tramo que antes se cierra, para asegurar esa ganancia cuanto antes
+  const first = [...steps].sort((a, b) => a.need - b.need)[0];
+  return {
+    code: first.code,
+    why: `Con unas ${R} fibras más este mes, lo que más rápel da es llevar ${steps.map((x) => `${x.code} a ${x.reach} fibras (+${x.gain} €)`).join(" y ")}.`,
+    steps: steps.map(({ need: _n, ...x }) => x),
+    gain: top.gain,
+  };
 }

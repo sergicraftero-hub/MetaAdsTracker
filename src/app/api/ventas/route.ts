@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { HttpError, handle, requireSession } from "@/lib/auth";
 import { visibleLead } from "@/lib/leadRules";
-import { aliasOf, allSales, catalogFor, commissionFor, forSeller, monthOf, realOf, summarize, toSale, todayMadrid } from "@/lib/sales";
+import { aliasOf, allSales, catalogFor, commissionFor, forSeller, forecast, monthOf, plan, realOf, summarize, toSale, todayMadrid } from "@/lib/sales";
 import { store } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +43,13 @@ export const GET = handle(async (req: Request) => {
     }
   }
   const live = ofMonth.filter((s) => !s.baja);
+  // Plan para lo que queda de mes (solo tiene sentido en el mes en curso)
+  const current = month === todayMadrid().slice(0, 7);
+  const fc = current ? await forecast(summary, month) : null;
+  const next = fc ? plan(summary, cat, fc.extra, "Movistar") : null;
   return NextResponse.json({
+    forecast: fc,
+    plan: next,
     products: [...mix.values()].sort((a, b) => b.commission - a.commission),
     counts: { sales: live.length, fibers: live.filter((s) => s.baf).length, second: live.filter((s) => !s.baf && s.fiber).length, lines: live.filter((s) => !s.fiber).length, dropped: ofMonth.length - live.length },
     month,

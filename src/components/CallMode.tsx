@@ -7,6 +7,7 @@ import CallButton, { useAwayTimer } from "./CallButton";
 import Icon from "./Icon";
 import SaleForm from "./SaleForm";
 import CodeHint, { salesChanged } from "./CodeHint";
+import CodeSummary from "./CodeSummary";
 import Comments, { postComment } from "./Comments";
 import { SOURCE_LABEL, buildPools, nextPick, type Source } from "./queue";
 import { SHIFT_WARN_MS, api, dayKey, fmtAgo, fmtWhen, pretty, shiftRemaining, str, telHref, timeKey, waHref } from "./util";
@@ -18,6 +19,8 @@ interface Props {
   onChat: (lead: Lead) => void;
   /** Vuelve a cargar los datos (tras fichar la entrada) */
   reload: () => void;
+  /** Abre la pestaña Contrataciones (solo dirección) */
+  onContracts?: () => void;
 }
 
 // El estado de la cola vive fuera del componente para que no se pierda al cambiar de pestaña
@@ -32,7 +35,7 @@ interface Current {
 }
 
 
-export default function CallMode({ data, replaceLead, toast, onChat, reload }: Props) {
+export default function CallMode({ data, replaceLead, toast, onChat, reload, onContracts }: Props) {
   const [active, setActive] = useState(false);
   const [cur, setCur] = useState<Current | null>(null);
   const [busy, setBusy] = useState(false);
@@ -211,6 +214,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
   if (!active || !cur || !lead) {
     return (
       <div className="call-wrap">
+        {data.me.role === "admin" && <CodeSummary onOpen={onContracts} />}
         <BonusCards data={data} refreshKey={session.done} />
         <section className="card call-start">
           <h2 className="lead-name">{active && !busy ? "No queda nadie por llamar" : "Modo llamadas"}</h2>

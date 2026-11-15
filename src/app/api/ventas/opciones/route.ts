@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { HttpError, handle, requireSession } from "@/lib/auth";
-import { aliasOf, allSales, catalogFor, forSeller, recommend, summarize, todayMadrid } from "@/lib/sales";
+import { aliasOf, allSales, catalogFor, forSeller, forecast, plan, summarize, todayMadrid } from "@/lib/sales";
 import { store } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,8 @@ export const GET = handle(async (req: Request) => {
   const leadId = new URL(req.url).searchParams.get("lead") ?? "";
   const { codes, sales, cat } = await allSales();
   const summary = summarize(codes, sales, todayMadrid().slice(0, 7), cat);
-  const rec = { Movistar: recommend(summary, "Movistar"), "No Movistar": recommend(summary, "No Movistar") };
+  const { extra } = await forecast(summary, todayMadrid().slice(0, 7));
+  const rec = { Movistar: plan(summary, cat, extra, "Movistar"), "No Movistar": plan(summary, cat, extra, "No Movistar") };
   const existing = leadId ? sales.find((s) => s.leadId === leadId && !s.baja) : undefined;
   return NextResponse.json({
     catalog: catalogFor(cat, admin),

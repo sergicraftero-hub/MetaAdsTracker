@@ -26,6 +26,9 @@ interface Data {
   sellers: { name: string; sales: number; fibers: number; lines: number; second: number; commission: number }[];
   products: { name: string; units: number; commission: number }[];
   counts: { sales: number; fibers: number; second: number; lines: number; dropped: number };
+  /** Solo en el mes en curso: fibras que se espera vender aún y el reparto que da más rápel */
+  forecast: { extra: number; auto: number; manual: boolean } | null;
+  plan: { code: string; why: string; steps: { code: string; add: number; reach: number; gain: number }[]; gain: number } | null;
   totals: { commission: number; lots: number; quarter: number };
   catalog: Product[];
   codes: { alias: string; real: string }[];
@@ -80,6 +83,17 @@ export default function Contracts({ toast }: { data: LeadsPayload; toast: Toast 
       toast((e as Error).message, true);
     }
     setBusy(false);
+  }
+
+  async function setForecast(extra: number | null) {
+    try {
+      await api("/api/ventas/prevision", "PUT", { extra });
+      toast(extra === null ? "Previsión automática" : "Previsión guardada");
+      window.dispatchEvent(new Event("sales-changed"));
+      await load();
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
   }
 
   async function addCode() {
@@ -160,6 +174,38 @@ export default function Contracts({ toast }: { data: LeadsPayload; toast: Toast 
           </details>
         )}
       </section>
+
+      {data.forecast && data.plan && (
+        <section className="card">
+          <h2>Dónde cargar las próximas ventas</h2>
+          <p className="plan-line">
+            Ahora, en <b>{data.plan.code || "—"}</b>. <span className="muted">{data.plan.why}</span>
+          </p>
+          <div className="forecast">
+            <label>
+              Fibras que esperáis vender aún este mes
+              <input
+                type="number"
+                min={0}
+                max={500}
+                defaultValue={data.forecast.extra}
+                key={`${data.forecast.extra}-${data.forecast.manual}`}
+                onBlur={(e) => Number(e.target.value) !== data.forecast!.extra && setForecast(Number(e.target.value))}
+                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+              />
+            </label>
+            <span className="muted hint">
+              {data.forecast.manual ? `Fijado por dirección (al ritmo actual saldrían ${data.forecast.auto}).` : "Calculado con el ritmo de ventas del mes."}
+              {data.forecast.manual && <button className="btn link inline-link" onClick={() => setForecast(null)}> Volver al automático</button>}
+            </span>
+          </div>
+          <p className="muted hint">
+            La app reparte esas ventas entre los códigos de la forma que da más rápel en total, contando cada tramo por lo que añade sobre lo ya ganado.
+            Con ese plan, el rápel por lotes del mes subiría {eur(data.plan.gain)}, hasta {eur(data.totals.lots + data.plan.gain)}. Es lo que ve el comercial al
+            fichar, sin importes.
+          </p>
+        </section>
+      )}
 
       <section className="card">
         <div className="between">

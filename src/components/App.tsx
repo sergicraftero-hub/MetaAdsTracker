@@ -239,7 +239,7 @@ function Shell() {
           </div>
         </header>
         <div className="view" key={tab}>
-        {tab === "llamar" && <CallMode data={data} replaceLead={replaceLead} toast={toast} onChat={actions.chat} reload={load} />}
+        {tab === "llamar" && <CallMode data={data} replaceLead={replaceLead} toast={toast} onChat={actions.chat} reload={load} onContracts={() => setTab("contratos")} />}
         {tab === "hoy" && <Agenda data={data} actions={actions} />}
         {tab === "leads" && <LeadList data={data} actions={actions} />}
         {tab === "whatsapp" && <WhatsApp data={data} openLead={open} toast={toast} />}
