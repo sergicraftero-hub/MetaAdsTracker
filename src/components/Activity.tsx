@@ -2,17 +2,37 @@
 import { useEffect, useMemo, useState } from "react";
 import { stageOf } from "@/lib/fields";
 import type { CallLog, LeadsPayload } from "@/lib/types";
-import { api, dayKey, timeKey } from "./util";
+import { api, dayKey, digits, str, timeKey } from "./util";
 
 const NO_CONTACT = new Set(["ILOCALIZABLE", "NUMERO ERRONEO", "SALTADO", ""]);
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)} %` : "—");
+const hm = (s: number) => (s >= 3600 ? `${Math.floor(s / 3600)} h ${String(Math.round((s % 3600) / 60)).padStart(2, "0")} min` : `${Math.round(s / 60)} min`);
 const mmss = (s: number) => (Number.isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}` : "—");
+
+/** Llamada más corta de este tiempo (en segundos) se marca para revisar */
+const SHORT_CALL = 8;
+
+/**
+ * Señales para dirección:
+ * - "nocall": marcó un resultado en la cola sin pulsar Llamar.
+ * - "short": pulsó Llamar pero estuvo fuera de la app menos de unos segundos.
+ */
+function flagOf(r: CallLog): "nocall" | "short" | null {
+  if (r.result === "SALTADO" || r.source === "ficha") return null;
+  if (!r.called) return "nocall";
+  if (r.away > 0 && r.away < SHORT_CALL) return "short";
+  return null;
+}
 
 interface Stats {
   calls: number;
   contacts: number;
   won: number;
   skipped: number;
+  /** Resultados guardados en la cola sin haber pulsado Llamar */
+  noCall: number;
+  /** Segundos reales en llamada (tiempo fuera de la app) */
+  talk: number;
   avg: number;
   perHour: number;
   first?: Date;
@@ -36,6 +56,8 @@ function stats(rows: CallLog[]): Stats {
     contacts: real.filter((r) => !NO_CONTACT.has(r.result.toUpperCase())).length,
     won: real.filter((r) => stageOf(r.result) === "ganado").length,
     skipped: rows.length - real.length,
+    noCall: real.filter((r) => flagOf(r) === "nocall").length,
+    talk: real.reduce((a, r) => a + (r.away || 0), 0),
     avg: real.length ? real.reduce((a, r) => a + r.seconds, 0) / real.length : NaN,
     perHour: hours > 0.05 ? real.length / hours : NaN,
     first: times.length ? new Date(Math.min(...times)) : undefined,
@@ -43,7 +65,10 @@ function stats(rows: CallLog[]): Stats {
   };
 }
 
-export default function Activity({ data }: { data: LeadsPayload }) {
+export default function Activity({ data, onOpenLead }: { data: LeadsPayload; onOpenLead?: (id: string) => void }) {
+  const [who, setWho] = useState("");
+  const [onlyFlagged, setOnlyFlagged] = useState(false);
+  const [limit, setLimit] = useState(40);
   const [days, setDays] = useState<1 | 7 | 30>(1);
   const [calls, setCalls] = useState<CallLog[] | null>(null);
   const [ready, setReady] = useState(true);
@@ -128,7 +153,8 @@ export default function Activity({ data }: { data: LeadsPayload }) {
             <div className="tile"><span className="tile-label">Firmados</span><span className="tile-value">{total.won}</span></div>
             <div className="tile"><span className="tile-label">Tiempo medio por lead</span><span className="tile-value">{mmss(total.avg)}</span></div>
             <div className="tile"><span className="tile-label">Llamadas por hora</span><span className="tile-value">{Number.isFinite(total.perHour) ? total.perHour.toFixed(1).replace(".", ",") : "—"}</span></div>
-            <div className="tile"><span className="tile-label">Saltados sin llamar</span><span className="tile-value">{total.skipped}</span></div>
+            <div className="tile"><span className="tile-label">Tiempo real en llamada</span><span className="tile-value">{total.talk ? hm(total.talk) : "—"}</span><span className="muted tile-sub">medido en el móvil</span></div>
+            <div className="tile"><span className="tile-label">Marcadas sin llamar</span><span className="tile-value">{total.noCall}</span><span className="muted tile-sub">{total.skipped} leads saltados</span></div>
           </div>
 
           <h3 className="sub">{days === 1 ? "Llamadas por hora del día" : "Llamadas por día"}</h3>
@@ -151,7 +177,8 @@ export default function Activity({ data }: { data: LeadsPayload }) {
                     <th>Llamadas</th>
                     <th>Contactos</th>
                     <th>Firmados</th>
-                    <th>Saltados</th>
+                    <th>Sin llamar</th>
+                    <th>En llamada</th>
                     <th>Tiempo medio</th>
                     <th>Por hora</th>
                     {days === 1 && <th>Primera</th>}
@@ -165,7 +192,8 @@ export default function Activity({ data }: { data: LeadsPayload }) {
                       <td>{u.calls}</td>
                       <td>{u.contacts} ({pct(u.contacts, u.calls)})</td>
                       <td>{u.won}</td>
-                      <td>{u.skipped}</td>
+                      <td>{u.noCall}</td>
+                      <td>{u.talk ? hm(u.talk) : "—"}</td>
                       <td>{mmss(u.avg)}</td>
                       <td>{Number.isFinite(u.perHour) ? u.perHour.toFixed(1).replace(".", ",") : "—"}</td>
                       {days === 1 && <td>{u.first ? timeKey(u.first) : "—"}</td>}
@@ -173,14 +201,110 @@ export default function Activity({ data }: { data: LeadsPayload }) {
                     </tr>
                   ))}
                   {byUser.length === 0 && (
-                    <tr><td colSpan={9} className="muted">Sin llamadas registradas en este periodo.</td></tr>
+                    <tr><td colSpan={10} className="muted">Sin llamadas registradas en este periodo.</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
           )}
+          {admin && <CallList calls={calls} data={data} who={who} setWho={setWho} onlyFlagged={onlyFlagged} setOnlyFlagged={setOnlyFlagged} limit={limit} setLimit={setLimit} onOpenLead={onOpenLead} />}
         </>
       )}
     </section>
+  );
+}
+
+interface ListProps {
+  calls: CallLog[];
+  data: LeadsPayload;
+  who: string;
+  setWho: (v: string) => void;
+  onlyFlagged: boolean;
+  setOnlyFlagged: (v: boolean) => void;
+  limit: number;
+  setLimit: (n: number) => void;
+  onOpenLead?: (id: string) => void;
+}
+
+/** Registro de llamadas una a una: quién llamó a quién, cuándo y cuánto duró, cruzado con los leads. */
+function CallList({ calls, data, who, setWho, onlyFlagged, setOnlyFlagged, limit, setLimit, onOpenLead }: ListProps) {
+  const byId = useMemo(() => new Map(data.leads.map((l) => [l.id, l])), [data.leads]);
+  const people = useMemo(() => [...new Set(calls.map((c) => c.user).filter(Boolean))].sort(), [calls]);
+  const rows = useMemo(
+    () =>
+      calls
+        .filter((c) => (!who || c.user === who) && (!onlyFlagged || flagOf(c)))
+        .sort((a, b) => b.at.localeCompare(a.at)),
+    [calls, who, onlyFlagged],
+  );
+  const flagged = calls.filter((c) => flagOf(c)).length;
+
+  return (
+    <div className="calllist">
+      <h3 className="sub">Registro de llamadas</h3>
+      <p className="muted hint">
+        «En llamada» es el tiempo que el móvil estuvo fuera de la app tras pulsar Llamar (incluye los tonos). «—» significa que no se pudo
+        medir. No sustituye al registro del operador, pero deja ver quién marca resultados sin llamar.
+      </p>
+      <div className="filters">
+        <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="Persona">
+          <option value="">Todas las personas</option>
+          {people.map((p) => <option key={p}>{p}</option>)}
+        </select>
+        <label className="check small-check">
+          <input type="checkbox" checked={onlyFlagged} onChange={(e) => setOnlyFlagged(e.target.checked)} />
+          Solo para revisar ({flagged})
+        </label>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Persona</th>
+              <th>Lead</th>
+              <th>Teléfono</th>
+              <th>Resultado</th>
+              <th>En llamada</th>
+              <th>Con el lead</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.slice(0, limit).map((c) => {
+              const lead = byId.get(c.leadId);
+              const flag = flagOf(c);
+              const d = new Date(c.at);
+              return (
+                <tr key={c.id}>
+                  <td>{d.toLocaleDateString("es-ES", { day: "numeric", month: "short" })} {timeKey(d)}</td>
+                  <th scope="row">{c.user || "—"}</th>
+                  <td className="left">
+                    {lead && onOpenLead ? (
+                      <button className="btn link inline-link" onClick={() => onOpenLead(lead.id)}>{str(lead.f.nombre) || c.leadName}</button>
+                    ) : (
+                      c.leadName || "—"
+                    )}
+                  </td>
+                  <td>{c.phone || (lead ? `+${digits(lead.f.telefono)}` : "—")}</td>
+                  <td className="left">{c.result === "SALTADO" ? "Saltado" : c.result || "—"}</td>
+                  <td>{c.away ? mmss(c.away) : "—"}</td>
+                  <td>{c.seconds ? mmss(c.seconds) : "—"}</td>
+                  <td className="left">
+                    {flag === "nocall" && <span className="pill warn">Sin pulsar Llamar</span>}
+                    {flag === "short" && <span className="pill warn">Llamada de {c.away} s</span>}
+                    {c.source === "ficha" && <span className="pill">Apuntado en la ficha</span>}
+                  </td>
+                </tr>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr><td colSpan={8} className="muted">Sin llamadas con ese filtro.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > limit && <button className="btn link" onClick={() => setLimit(limit + 100)}>Ver más ({rows.length - limit})</button>}
+    </div>
   );
 }

@@ -154,6 +154,7 @@ interface Cache {
   appDbs: Partial<Record<AppDb, { at: number; id: string | null }>>;
   log: { entries: Map<string, CallLog>; from: number; syncAt: number };
   people?: { at: number; names: Map<string, string> };
+  ensured?: Set<string>;
 }
 type AppDb = "users" | "log" | "alerts" | "bonus" | "wa" | "fichajes" | "solicitudes" | "nominas" | "locks" | "ajustes";
 const g = globalThis as unknown as { __crmNotion?: Cache };
@@ -291,6 +292,8 @@ const LOG_PROPS: Record<string, any> = {
   Resultado: { select: {} },
   Segundos: { number: {} },
   Llamo: { checkbox: {} },
+  Fuera: { number: {} },
+  Telefono: { rich_text: {} },
 };
 
 /** Página de Notion bajo la que la app crea sus propias bases de datos. */
@@ -360,7 +363,7 @@ const APP_DBS: Record<AppDb, { env: string; title: string; titleProp: string; pr
     env: "NOTION_ALERTS_DB_ID",
     title: "BUT Calls · Avisos de llamada",
     titleProp: "Lead",
-    props: { Para: { rich_text: {} }, Telefono: { rich_text: {} }, LeadId: { rich_text: {} } },
+    props: { Para: { rich_text: {} }, Telefono: { rich_text: {} }, LeadId: { rich_text: {} }, Fuera: { number: {} } },
   },
 };
 
@@ -368,7 +371,28 @@ const APP_DBS: Record<AppDb, { env: string; title: string; titleProp: string; pr
  * ID de una base de datos de la app. Sale de la variable de entorno si existe; si no,
  * se busca (o se crea) dentro de una página llamada «BUT Calls» compartida con la integración.
  */
+/**
+ * ID de una base de la app, comprobando una vez por arranque que tiene todas sus columnas:
+ * así, cuando una versión nueva añade una columna, aparece sola en las bases que ya existían.
+ */
 async function appDb(kind: AppDb): Promise<string | null> {
+  const id = await resolveDb(kind);
+  const ensured = (cache.ensured ??= new Set<string>());
+  if (id && !ensured.has(kind)) {
+    try {
+      const db = await api(`databases/${id}`);
+      const have = new Set(Object.keys(db.properties).map(norm));
+      const missing = Object.fromEntries(Object.entries(APP_DBS[kind].props).filter(([n]) => !have.has(norm(n))));
+      if (Object.keys(missing).length) await api(`databases/${id}`, "PATCH", { properties: missing });
+      ensured.add(kind);
+    } catch (e) {
+      console.error(`No se pudieron comprobar las columnas de ${APP_DBS[kind].title}`, e);
+    }
+  }
+  return id;
+}
+
+async function resolveDb(kind: AppDb): Promise<string | null> {
   const def = APP_DBS[kind];
   const fromEnv = cleanId(process.env[def.env] ?? "");
   if (fromEnv) return fromEnv;
@@ -478,6 +502,8 @@ function toLog(page: any): CallLog {
     result: String(g2("Resultado") ?? ""),
     seconds: Number(g2("Segundos") ?? 0),
     called: g2("Llamo") === true,
+    away: Number(g2("Fuera") ?? 0) || 0,
+    phone: String(g2("Telefono") ?? ""),
   };
 }
 
@@ -497,6 +523,8 @@ export async function addLog(e: Omit<CallLog, "id">): Promise<CallLog | null> {
       Resultado: { select: e.result ? { name: e.result.replace(/,/g, " ") } : null },
       Segundos: { number: e.seconds },
       Llamo: { checkbox: e.called },
+      Fuera: { number: e.away },
+      Telefono: text(e.phone),
     },
   });
   const entry = toLog(page);
@@ -630,6 +658,35 @@ export async function listAlerts(to: string): Promise<CallAlert[]> {
       phone: String(readProp(p.properties?.Telefono) ?? ""),
       leadId: String(readProp(p.properties?.LeadId) ?? ""),
     }));
+}
+
+/** El móvil apunta en el aviso cuánto duró la llamada que aceptó (tiempo fuera de la app). */
+export async function setAlertAway(to: string, id: string, seconds: number): Promise<void> {
+  const page = await api(`pages/${id}`);
+  if (String(readProp(page.properties?.Para) ?? "") !== to) return;
+  await api(`pages/${id}`, "PATCH", { properties: { Fuera: { number: seconds } } });
+}
+
+/** Duración medida en el móvil para un lead llamado desde el ordenador; los avisos usados se borran. */
+export async function takeAlertAway(to: string, leadId: string): Promise<number> {
+  const dbId = await appDb("alerts");
+  if (!dbId) return 0;
+  const res = await api(`databases/${dbId}/query`, "POST", {
+    page_size: 10,
+    filter: {
+      and: [
+        { property: "Para", rich_text: { equals: to } },
+        { property: "LeadId", rich_text: { equals: leadId } },
+        { timestamp: "created_time", created_time: { on_or_after: new Date(Date.now() - 4 * 3600_000).toISOString() } },
+      ],
+    },
+  });
+  let total = 0;
+  for (const p of res.results as any[]) {
+    total += Number(readProp(p.properties?.Fuera) ?? 0) || 0;
+    await api(`pages/${p.id}`, "PATCH", { archived: true }).catch(() => {});
+  }
+  return total;
 }
 
 export async function removeAlert(id: string): Promise<void> {

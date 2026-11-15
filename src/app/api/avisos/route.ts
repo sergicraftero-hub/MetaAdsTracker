@@ -23,7 +23,16 @@ export const POST = handle(async (req: Request) => {
   return NextResponse.json({ ok: true });
 });
 
-/** El aviso se ha aceptado o descartado en el móvil. */
+/** El móvil informa de cuánto duró la llamada que aceptó (tiempo que estuvo fuera de la app). */
+export const PATCH = handle(async (req: Request) => {
+  const me = await requireSession();
+  const { id, away } = (await req.json().catch(() => ({}))) as { id?: string; away?: number };
+  const seconds = Math.min(Math.max(Math.round(Number(away) || 0), 0), 4 * 3600);
+  if (id && seconds) await store.setAlertAway(me.email, String(id), seconds);
+  return NextResponse.json({ ok: true });
+});
+
+/** El aviso se ha descartado en el móvil. */
 export const DELETE = handle(async (req: Request) => {
   const me = await requireSession();
   const id = new URL(req.url).searchParams.get("id") ?? "";

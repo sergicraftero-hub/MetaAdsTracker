@@ -107,7 +107,7 @@ interface DemoState {
   users: StoredUser[];
   log: CallLog[];
   comments: Map<string, Comment[]>;
-  alerts: (CallAlert & { to: string; at: number })[];
+  alerts: (CallAlert & { to: string; at: number; away?: number })[];
   bonuses: Bonus[];
   wa: Map<string, WaMessage[]>;
   waLabels: Map<string, string[]>;
@@ -133,7 +133,7 @@ function seedLog(leads: Lead[]): CallLog[] {
         const lead = leads[Math.floor(rnd() * leads.length)];
         const result = results[Math.floor(rnd() * results.length)];
         if (t.getTime() < Date.now()) {
-          out.push({ id: `log-${out.length}`, at: t.toISOString(), user, code, leadId: lead.id, leadName: String(lead.f.nombre), source: ["antiguo", "antiguo", "nuevo", "rellamada"][i % 4], result, seconds, called: result !== "SALTADO" });
+          out.push({ id: `log-${out.length}`, at: t.toISOString(), user, code, leadId: lead.id, leadName: String(lead.f.nombre), source: ["antiguo", "antiguo", "nuevo", "rellamada"][i % 4], result, seconds, called: result !== "SALTADO" && i % 9 !== 4, away: result === "SALTADO" || i % 9 === 4 ? 0 : i % 7 === 3 ? 4 : Math.max(12, seconds - 35), phone: String(lead.f.telefono ?? "") });
         }
         t.setSeconds(t.getSeconds() + seconds + 60 + Math.floor(rnd() * 600));
       }
@@ -283,6 +283,16 @@ export const demo = {
     state()
       .alerts.filter((a) => a.to === to && Date.now() - a.at < 90_000)
       .map(({ id, leadId, name, phone }) => ({ id, leadId, name, phone })),
+  setAlertAway(to: string, id: string, seconds: number) {
+    const a = state().alerts.find((x) => x.id === id && x.to === to);
+    if (a) a.away = seconds;
+  },
+  takeAlertAway(to: string, leadId: string): number {
+    const st = state();
+    const mine = st.alerts.filter((a) => a.to === to && a.leadId === leadId);
+    st.alerts = st.alerts.filter((a) => !mine.includes(a));
+    return mine.reduce((n, a) => n + (a.away ?? 0), 0);
+  },
   removeAlert(id: string) {
     const st = state();
     st.alerts = st.alerts.filter((a) => a.id !== id);

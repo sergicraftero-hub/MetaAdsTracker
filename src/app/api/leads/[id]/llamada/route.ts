@@ -10,6 +10,8 @@ interface Body {
   called?: boolean;
   source?: string;
   skipped?: boolean;
+  /** Segundos fuera de la app tras pulsar Llamar (medidos en el móvil) */
+  away?: number;
 }
 
 /** Resultado de una llamada del modo «Llamar»: actualiza el lead y deja constancia en el registro. */
@@ -36,6 +38,9 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
 
   const shown = new Date(body.shownAt ?? "");
   const at = Number.isNaN(shown.getTime()) || shown.getTime() > Date.now() ? new Date() : shown;
+  // Duración real aproximada: la mide el propio móvil; si la llamada se pidió desde el ordenador, la apuntó el móvil en el aviso
+  let away = Math.min(Math.max(Math.round(Number(body.away) || 0), 0), 4 * 3600);
+  if (!away && body.called && !body.skipped) away = await store.takeAlertAway(me.email, id).catch(() => 0);
   let logged = true;
   try {
     const entry = await store.addLog({
@@ -48,6 +53,8 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
       result: body.skipped ? "SALTADO" : String(lead.f.estado ?? ""),
       seconds: Math.min(Math.max(Math.round((Date.now() - at.getTime()) / 1000), 0), 4 * 3600),
       called: body.called === true,
+      away,
+      phone: String(current.f.telefono ?? ""),
     });
     logged = !!entry;
   } catch (e) {

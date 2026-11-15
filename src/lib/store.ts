@@ -26,6 +26,9 @@ export const store = {
 
   addAlert: async (to: string, a: Omit<CallAlert, "id">): Promise<boolean> => (isDemo() ? demo.addAlert(to, a) : notion.addAlert(to, a)),
   listAlerts: async (to: string): Promise<CallAlert[]> => (isDemo() ? demo.listAlerts(to) : notion.listAlerts(to)),
+  setAlertAway: async (to: string, id: string, seconds: number): Promise<void> =>
+    isDemo() ? demo.setAlertAway(to, id, seconds) : notion.setAlertAway(to, id, seconds),
+  takeAlertAway: async (to: string, leadId: string): Promise<number> => (isDemo() ? demo.takeAlertAway(to, leadId) : notion.takeAlertAway(to, leadId)),
   removeAlert: async (id: string): Promise<void> => (isDemo() ? demo.removeAlert(id) : notion.removeAlert(id)),
 
   bonusConfigured: async (): Promise<boolean> => isDemo() || notion.bonusConfigured(),

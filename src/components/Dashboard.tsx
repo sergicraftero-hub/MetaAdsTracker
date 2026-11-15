@@ -156,11 +156,11 @@ function MyDay({ data }: { data: LeadsPayload }) {
   );
 }
 
-export default function Dashboard({ data }: { data: LeadsPayload }) {
-  return data.me.role === "admin" ? <ManagerDashboard data={data} /> : <MyDay data={data} />;
+export default function Dashboard({ data, onOpenLead }: { data: LeadsPayload; onOpenLead?: (id: string) => void }) {
+  return data.me.role === "admin" ? <ManagerDashboard data={data} onOpenLead={onOpenLead} /> : <MyDay data={data} />;
 }
 
-function ManagerDashboard({ data }: { data: LeadsPayload }) {
+function ManagerDashboard({ data, onOpenLead }: { data: LeadsPayload; onOpenLead?: (id: string) => void }) {
   const [range, setRange] = useState<Range>("30");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -325,7 +325,7 @@ function ManagerDashboard({ data }: { data: LeadsPayload }) {
       <Breakdown title="Conversión por compañía actual" groups={groupBy(leads, (l) => pretty(l.f.compania) || "—")} />
       <Breakdown title="Conversión por lo que paga al mes" groups={groupBy(leads, (l) => pretty(l.f.cuantoPaga) || "—")} />
 
-      <Activity data={data} />
+      <Activity data={data} onOpenLead={onOpenLead} />
     </div>
   );
 }

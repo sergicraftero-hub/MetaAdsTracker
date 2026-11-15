@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { stageOf } from "@/lib/fields";
 import type { Lead, LeadsPayload } from "@/lib/types";
 import { BonusCards } from "./Bonuses";
-import CallButton from "./CallButton";
+import CallButton, { useAwayTimer } from "./CallButton";
 import Comments, { postComment } from "./Comments";
 import { SOURCE_LABEL, buildPools, nextPick, type Source } from "./queue";
 import { SHIFT_WARN_MS, api, dayKey, fmtAgo, fmtWhen, pretty, shiftRemaining, str, telHref, timeKey, waHref } from "./util";
@@ -39,6 +39,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
   const [cbTime, setCbTime] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [tick, setTick] = useState(0);
+  const away = useAwayTimer();
   const leadsRef = useRef(data.leads);
   leadsRef.current = data.leads;
   const meRef = useRef(data.me);
@@ -80,6 +81,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
           session.handled.add(fresh.id);
           continue;
         }
+        away.reset();
         setCur({ id: fresh.id, source: pick.source, slots: pick.slots, shownAt: new Date().toISOString(), called: false });
         setNotes("");
         setBusy(false);
@@ -103,7 +105,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
     try {
       // La nota y el contrato van primero, como comentario en la página del lead en Notion
       if (fields && (notes.trim() || file)) await postComment(cur.id, notes.trim() || (file ? "Contrato firmado" : ""), file);
-      const body = { fields: fields ?? {}, skipped: fields === null, shownAt: cur.shownAt, called: cur.called, source: cur.source };
+      const body = { fields: fields ?? {}, skipped: fields === null, shownAt: cur.shownAt, called: cur.called, source: cur.source, away: away.read() };
       const saved = (await api<{ lead: Lead; logged: boolean }>(`/api/leads/${cur.id}/llamada`, "POST", body)).lead;
       replaceLead(saved);
       leadsRef.current = leadsRef.current.map((l) => (l.id === saved.id ? saved : l));
@@ -275,6 +277,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload }: P
         <div className="contact">
           <CallButton lead={lead} className="btn primary big" toast={toast} onCall={() => {
               setCur({ ...cur, called: true });
+              away.start();
               // Al pulsar «Llamar», un lead sin comercial pasa a ser de quien llama
               if (!lead.f.comercial && data.me.code) {
                 api<{ lead: Lead }>(`/api/leads/${lead.id}`, "PATCH", { fields: { comercial: data.me.code } })

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CallAlert, Lead } from "@/lib/types";
 import { api, digits, str, telHref } from "./util";
 
@@ -51,9 +51,49 @@ export default function CallButton({ lead, className = "btn primary", toast, onC
   );
 }
 
+/**
+ * Cronómetro de «tiempo fuera de la app»: al pulsar Llamar en el móvil se abre el marcador y la app
+ * pasa a segundo plano; lo que tarda en volver es la duración real aproximada de la llamada.
+ * `onReturn` recibe los segundos acumulados cada vez que el usuario vuelve a la app.
+ */
+export function useAwayTimer(onReturn?: (seconds: number) => void) {
+  const t = useRef<{ on: boolean; hiddenAt: number | null; total: number }>({ on: false, hiddenAt: null, total: 0 });
+  const cb = useRef(onReturn);
+  cb.current = onReturn;
+  useEffect(() => {
+    const onVis = () => {
+      const s = t.current;
+      if (!s.on) return;
+      if (document.visibilityState === "hidden") s.hiddenAt = Date.now();
+      else if (s.hiddenAt) {
+        s.total += Date.now() - s.hiddenAt;
+        s.hiddenAt = null;
+        cb.current?.(Math.round(s.total / 1000));
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+  return {
+    /** Empieza a medir (solo tiene sentido en móvil o tablet, donde llamar saca de la app) */
+    start: () => {
+      if (isTouchDevice()) t.current.on = true;
+    },
+    read: () => Math.round(t.current.total / 1000),
+    reset: () => {
+      t.current = { on: false, hiddenAt: null, total: 0 };
+    },
+  };
+}
+
 /** En móvil o tablet: pregunta cada pocos segundos si hay una llamada pedida desde el ordenador. */
 export function PhoneAlerts() {
   const [alert, setAlert] = useState<CallAlert | null>(null);
+  const accepted = useRef<string | null>(null);
+  // Tras aceptar la llamada, al volver a la app se apunta en el aviso cuánto ha durado
+  const timer = useAwayTimer((seconds) => {
+    if (accepted.current) api("/api/avisos", "PATCH", { id: accepted.current, away: seconds }).catch(() => {});
+  });
 
   useEffect(() => {
     if (!isTouchDevice()) return;
@@ -91,7 +131,18 @@ export function PhoneAlerts() {
         <p className="muted">{alert.phone}</p>
         <div className="contact">
           <button className="btn big" onClick={done}>Ignorar</button>
-          <a className="btn primary big" href={`tel:+${digits(alert.phone)}`} onClick={done}>Llamar</a>
+          <a
+            className="btn primary big"
+            href={`tel:+${digits(alert.phone)}`}
+            onClick={() => {
+              accepted.current = alert.id;
+              timer.reset();
+              timer.start();
+              setAlert(null);
+            }}
+          >
+            Llamar
+          </a>
         </div>
       </div>
     </div>

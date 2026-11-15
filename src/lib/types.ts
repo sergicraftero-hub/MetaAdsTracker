@@ -202,6 +202,10 @@ export interface CallLog {
   seconds: number;
   /** Si se pulsó el botón de llamar */
   called: boolean;
+  /** Segundos que el móvil estuvo fuera de la app tras pulsar Llamar: duración real aproximada de la llamada (0 = sin medir) */
+  away: number;
+  /** Teléfono al que se llamó */
+  phone: string;
 }
 
 export interface LeadsPayload {

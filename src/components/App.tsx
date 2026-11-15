@@ -230,7 +230,7 @@ export default function App() {
         {tab === "leads" && <LeadList data={data} actions={actions} />}
         {tab === "whatsapp" && <WhatsApp data={data} openLead={open} toast={toast} />}
         {tab === "embudo" && <Pipeline data={data} actions={actions} />}
-        {tab === "panel" && <Dashboard data={data} />}
+        {tab === "panel" && <Dashboard data={data} onOpenLead={open} />}
         {tab === "portal" && <Portal data={data} toast={toast} />}
         {tab === "ayuda" && <Help data={data} goTo={setTab} />}
         {tab === "equipo" && admin && <Team data={data} toast={toast} />}
