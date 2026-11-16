@@ -64,10 +64,32 @@ export const PATCH = handle(async (req: Request) => {
   // Los descansos que queden fuera del nuevo horario se descartan
   const breaks = current.breaks.filter((x) => new Date(x.s) >= start && (!end || !x.e || new Date(x.e) <= end)).map((x) => (end && !x.e ? { ...x, e: end.toISOString() } : x));
   const when = new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "short" }).format(new Date());
-  const line = `${when} · ${me.name}: ${reason} (antes: ${current.start} → ${current.end ?? "sin salida"})`;
+  const line = `${when} · ${me.name}: ${reason} (antes: ${current.start} → ${current.end ?? "sin salida"})${current.ticket ? ` [petición: ${current.ticket}]` : ""}`;
   const row = await store.rowSet("fichajes", current.id, {
     ...shiftValues(current.user, start.toISOString(), end ? end.toISOString() : null, breaks),
     Correcciones: [current.edits, line].filter(Boolean).join("\n").slice(-1900),
+    // Al corregir, la petición del trabajador queda atendida
+    Incidencia: "",
   });
   return NextResponse.json({ shift: toShift(row) });
+});
+
+/**
+ * Petición de corrección («ticket») sobre un registro. La abre el trabajador en un fichaje suyo, explicando qué está mal;
+ * el registro no cambia hasta que dirección lo corrige. Dirección puede descartarla enviando el texto vacío.
+ */
+export const PUT = handle(async (req: Request) => {
+  const me = await requireSession();
+  const b = (await req.json().catch(() => ({}))) as { id?: string; text?: string };
+  const current = toShift(await store.rowGet(String(b.id ?? "")));
+  if (!current.start) throw new HttpError(404, "Registro no encontrado");
+  const text = String(b.text ?? "").trim().replace(/\s+/g, " ").slice(0, 400);
+  if (!text) {
+    if (me.role !== "admin" && current.user !== me.email) throw new HttpError(403, "No puedes tocar este registro");
+    return NextResponse.json({ shift: toShift(await store.rowSet("fichajes", current.id, { Incidencia: "" })) });
+  }
+  if (current.user !== me.email) throw new HttpError(403, "Solo puedes pedir la corrección de tus propios fichajes");
+  if (text.length < 5) throw new HttpError(400, "Explica qué hay que corregir");
+  const when = new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", dateStyle: "short", timeStyle: "short" }).format(new Date());
+  return NextResponse.json({ shift: toShift(await store.rowSet("fichajes", current.id, { Incidencia: `${when} · ${text}` })) });
 });

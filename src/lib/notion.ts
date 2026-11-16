@@ -339,7 +339,7 @@ const APP_DBS: Record<AppDb, { env: string; title: string; titleProp: string; pr
     env: "NOTION_FICHAJES_DB_ID",
     title: "BUT Calls · Fichajes",
     titleProp: "Registro",
-    props: { Usuario: { rich_text: {} }, Nombre: { rich_text: {} }, Entrada: { date: {} }, Salida: { date: {} }, Descansos: { rich_text: {} }, Correcciones: { rich_text: {} }, Firma: { rich_text: {} } },
+    props: { Usuario: { rich_text: {} }, Nombre: { rich_text: {} }, Entrada: { date: {} }, Salida: { date: {} }, Descansos: { rich_text: {} }, Correcciones: { rich_text: {} }, Firma: { rich_text: {} }, Incidencia: { rich_text: {} } },
   },
   solicitudes: {
     env: "NOTION_SOLICITUDES_DB_ID",

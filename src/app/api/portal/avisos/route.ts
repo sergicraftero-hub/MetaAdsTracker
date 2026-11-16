@@ -16,13 +16,19 @@ const month = (p: string) => new Date(`${p}-01T12:00:00`).toLocaleDateString("es
  */
 export const GET = handle(async () => {
   const me = await requireSession();
-  if (!(await store.portalReady())) return NextResponse.json({ pending: [], news: [], clock: [] });
-  const [leaveRows, slipRows, openRows, notices] = await Promise.all([
+  if (!(await store.portalReady())) return NextResponse.json({ pending: [], news: [], clock: [], tickets: [] });
+  const [leaveRows, slipRows, openRows, notices, ticketRows] = await Promise.all([
     store.rowsList("solicitudes"),
     store.rowsList("nominas"),
     store.rowsList("fichajes", { property: "Salida", date: { is_empty: true } }),
     store.rowsList("anuncios").catch(() => []),
+    me.role === "admin" ? store.rowsList("fichajes", { property: "Incidencia", rich_text: { is_not_empty: true } }).catch(() => []) : Promise.resolve([]),
   ]);
+  // Peticiones de corrección de fichajes que dirección tiene por atender
+  const tickets = ticketRows
+    .map(toShift)
+    .filter((s) => s.ticket)
+    .map((s) => ({ id: s.id, name: s.name, day: s.start ? day(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date(s.start))) : "", text: s.ticket.replace(/^[^·]*· /, "") }));
   // Jornadas que llevan demasiadas horas abiertas: la propia y, para dirección, las de todos
   const clock = openRows
     .map(toShift)
@@ -49,5 +55,5 @@ export const GET = handle(async () => {
   }
   news.sort((a, b) => b.at.localeCompare(a.at));
   const pending = me.role === "admin" ? leaveRows.map(toLeave).filter((l) => l.status === "pendiente") : [];
-  return NextResponse.json({ pending, news, clock });
+  return NextResponse.json({ pending, news, clock, tickets });
 });

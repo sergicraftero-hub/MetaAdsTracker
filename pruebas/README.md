@@ -26,6 +26,7 @@ Conviene pasarlas antes de subir cualquier cambio.
 | `nuevo` | Barra de tramos, celebración, pantallas vacías y lámina |
 | `cambios` | Pausa, fichar salida, estados a la vista, lista de leads y embudo del comercial, claves por código |
 | `iphone` | Aviso de instalación en iPhone |
+| `ticket` | Petición de corrección de un fichaje |
 | `look`, `url` | Aspecto general y que el comercial no ve «Abrir en Notion» |
 
 `desfasadas/` guarda pruebas antiguas que dejaron de pasar al cambiar las pantallas (nombres de pestañas, botones). Se conservan como referencia; lo que cubrían está en las de arriba, salvo la lectura del contrato (`ventas`), que necesita un contrato real en PDF y no se guarda aquí por llevar datos de un cliente.

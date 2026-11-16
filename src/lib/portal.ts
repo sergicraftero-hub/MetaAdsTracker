@@ -27,7 +27,7 @@ export function toShift(r: Row): Shift {
   const start = str(r.Entrada);
   const end = str(r.Salida) || null;
   const breaks = parseBreaks(r.Descansos);
-  return { id: r.id, user, name: str(r.Nombre), start, end, breaks, edits: str(r.Correcciones), valid: str(r.Firma) === seal(payload(user, start, end, breaks)) };
+  return { id: r.id, user, name: str(r.Nombre), start, end, breaks, edits: str(r.Correcciones), ticket: str(r.Incidencia), valid: str(r.Firma) === seal(payload(user, start, end, breaks)) };
 }
 
 /** Valores de las columnas de Notion para guardar una jornada, con su firma. */

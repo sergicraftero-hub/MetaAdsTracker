@@ -170,6 +170,8 @@ export interface Shift {
   edits: string;
   /** false si el registro se ha modificado fuera de la app */
   valid: boolean;
+  /** Petición de corrección abierta por el trabajador (vacío si no hay) */
+  ticket: string;
 }
 
 export type LeaveStatus = "pendiente" | "aprobada" | "rechazada";

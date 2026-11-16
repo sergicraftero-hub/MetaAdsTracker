@@ -34,6 +34,7 @@ const GUIDES: Guide[] = [
       { icon: "play", title: "Ficha al empezar", text: "Entra en Portal y pulsa «Entrar». El contador empieza a correr. Hasta que no fiches, no te salen llamadas. Al fichar te sale el código en el que cargar tus ventas de hoy y cuántas faltan. Si a lo largo del día te salta «Cambia de código», usa el nuevo desde ese momento." },
       { icon: "coffee", title: "Apunta tus descansos", text: "Cuando pares, pulsa «Empezar descanso». Al volver, «Volver del descanso». El contador se para mientras tanto." },
       { icon: "stop", title: "Ficha al terminar", text: "Al acabar el día pulsa «Fichar salida» en la pantalla de Llamar, o «Salir» en Portal. Tu jornada queda guardada." },
+      { icon: "pencil", title: "Si te equivocas o se te olvida", text: "En Portal, busca ese día en tu registro y pulsa «Pedir corrección». Cuenta qué pasó y a qué hora fue de verdad. Dirección lo revisa y lo arregla." },
       { icon: "sunset", title: "Cuando se acaba tu jornada", text: "Cinco minutos antes de cumplir tus horas te avisamos y dejan de salirte llamadas. Termina lo que tengas abierto y ficha la salida." },
       { icon: "help", title: "¿Se te olvidó fichar?", text: "Ficha en cuanto te acuerdes y díselo a dirección: solo ellos pueden corregir la hora. Si llevas muchas horas con la jornada abierta, la campana te avisa." },
     ],
@@ -234,6 +235,7 @@ const MANUAL: { title: string; items: [string, string][] }[] = [
     title: "Portal del empleado",
     items: [
       ["Fichaje", "Entrada, descansos y salida. La hora la pone el servidor, no el dispositivo. Cada trabajador ve y descarga su registro; dirección ve el de todos y puede descargar el mes en CSV."],
+      ["Pedir corrección de un fichaje", "Si un trabajador se olvida de fichar o ficha mal, pulsa «Pedir corrección» en ese día de su registro y explica qué pasó. El registro queda marcado como «Corrección pedida» y a dirección le llega a la campana. Dirección abre «Corregir» en ese día, ve la petición, ajusta las horas con su motivo y la petición se cierra sola; también puede descartarla. El registro no cambia hasta que dirección lo corrige, y la petición queda anotada en el historial de la corrección."],
       ["Corregir un fichaje", "Solo dirección, en Portal → Fichaje → «Corregir». El motivo es obligatorio y queda anotado quién, cuándo y el valor anterior."],
       ["«Alterado»", "Cada registro lleva una firma. Si alguien lo cambia directamente en Notion, la app lo marca como Alterado. Limita a dirección el acceso a la base «BUT Calls · Fichajes»."],
       ["Normativa", "Cubre el registro diario de jornada (art. 34.9 del Estatuto de los Trabajadores): inicio y fin de cada jornada, consultable por el trabajador y descargable para una inspección. Hay que conservarlo cuatro años: no borres la base. La app no calcula horas extra. Confírmalo con vuestra gestoría."],

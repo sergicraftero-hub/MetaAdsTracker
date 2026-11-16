@@ -46,7 +46,7 @@ function Clock({ data, toast }: Props) {
   const [skew, setSkew] = useState(0);
   const [, setTick] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [edit, setEdit] = useState<{ id: string; start: string; end: string; reason: string } | null>(null);
+  const [edit, setEdit] = useState<{ id: string; start: string; end: string; reason: string; ticket?: string } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +76,26 @@ function Clock({ data, toast }: Props) {
       toast((e as Error).message, true);
     }
     setBusy(false);
+  }
+
+  /** El trabajador abre una petición de corrección sobre un fichaje suyo; dirección la descarta con el texto vacío. */
+  async function ticket(id: string, text: string, ok: string) {
+    try {
+      await api("/api/portal/fichaje", "PUT", { id, text });
+      toast(ok);
+      await load();
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+  }
+  async function askFix(s: Shift) {
+    const v = await dlg.form({
+      title: "Pedir corrección",
+      text: "Cuenta qué está mal y a qué hora fue de verdad. Dirección lo revisa y corrige el registro.",
+      ok: "Enviar a dirección",
+      fields: [{ key: "text", label: "Qué hay que corregir", type: "textarea", required: true, minLength: 5, placeholder: "p. ej. Olvidé fichar la salida; salí a las 18:00" }],
+    });
+    if (v?.text) await ticket(s.id, v.text, "Petición enviada a dirección");
   }
 
   async function saveEdit() {
@@ -112,7 +132,7 @@ function Clock({ data, toast }: Props) {
             : "Pulsa «Entrar» al empezar tu jornada. La hora la registra el servidor, no tu dispositivo."}
         </p>
         {open && now - new Date(open.start).getTime() > 12 * 3600_000 && (
-          <p className="error hint">Esta jornada lleva más de 12 horas abierta. Si olvidaste fichar la salida, ficha ahora y pide a dirección que corrija la hora.</p>
+          <p className="error hint">Esta jornada lleva más de 12 horas abierta. Si olvidaste fichar la salida, ficha ahora y pulsa «Pedir corrección» en ese día del registro de abajo.</p>
         )}
         {open && <CodeHint big />}
         <div className="contact">
@@ -166,7 +186,10 @@ function Clock({ data, toast }: Props) {
                   <td className="cell-actions">
                     {!s.valid && <span className="pill warn" title="El registro se ha cambiado directamente en Notion, fuera de la aplicación">Alterado</span>}
                     {s.edits && <span className="pill" title={s.edits}>Corregido</span>}
-                    {admin && <button className="btn small" onClick={() => setEdit({ id: s.id, start: localInput(s.start), end: s.end ? localInput(s.end) : "", reason: "" })}>Corregir</button>}
+                    {s.ticket && <span className="pill warn" title={s.ticket}>Corrección pedida</span>}
+                    {admin && <button className="btn small" onClick={() => setEdit({ id: s.id, start: localInput(s.start), end: s.end ? localInput(s.end) : "", reason: "", ticket: s.ticket })}>Corregir</button>}
+                    {s.user === data.me.email && !s.ticket && <button className="btn small" onClick={() => askFix(s)}>Pedir corrección</button>}
+                    {s.user === data.me.email && s.ticket && !admin && <button className="btn small" onClick={() => ticket(s.id, "", "Petición retirada")}>Retirar</button>}
                   </td>
                 </tr>
               ))}
@@ -187,7 +210,7 @@ function Clock({ data, toast }: Props) {
         </div>
         <p className="muted hint">
           El registro guarda la hora de inicio y fin de cada jornada y los descansos, se conserva en Notion y cada trabajador puede consultar y
-          descargar el suyo. Las correcciones solo las hace dirección, con motivo, y queda anotado quién, cuándo y el valor anterior.
+          descargar el suyo. Si un fichaje está mal (te olvidaste de fichar, por ejemplo), pulsa «Pedir corrección» en ese día y explica qué pasó. Las correcciones solo las hace dirección, con motivo, y queda anotado quién, cuándo y el valor anterior.
         </p>
       </section>
 
@@ -195,6 +218,11 @@ function Clock({ data, toast }: Props) {
         <div className="overlay centered" onClick={(e) => e.target === e.currentTarget && setEdit(null)}>
           <div className="card modal" role="dialog" aria-modal="true" aria-label="Corregir fichaje">
             <h2>Corregir fichaje</h2>
+            {edit.ticket && (
+              <p className="notice">
+                <strong>Petición del trabajador:</strong> {edit.ticket}
+              </p>
+            )}
             <label>
               Entrada
               <input type="datetime-local" value={edit.start} onChange={(e) => setEdit({ ...edit, start: e.target.value })} />
@@ -209,6 +237,18 @@ function Clock({ data, toast }: Props) {
             </label>
             <div className="contact">
               <button className="btn" onClick={() => setEdit(null)}>Cancelar</button>
+              {edit.ticket && (
+                <button
+                  className="btn"
+                  disabled={busy}
+                  onClick={async () => {
+                    await ticket(edit.id, "", "Petición descartada");
+                    setEdit(null);
+                  }}
+                >
+                  Descartar petición
+                </button>
+              )}
               <button className="btn primary" disabled={busy || edit.reason.trim().length < 5} onClick={saveEdit}>Guardar corrección</button>
             </div>
           </div>
@@ -569,6 +609,12 @@ interface OpenClock {
   mine: boolean;
   hours: number;
 }
+interface FixTicket {
+  id: string;
+  name: string;
+  day: string;
+  text: string;
+}
 interface UnreadChat {
   id: string;
   name: string;
@@ -597,6 +643,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
   const [pending, setPending] = useState<Leave[]>([]);
   const [news, setNews] = useState<News[]>([]);
   const [clock, setClock] = useState<OpenClock[]>([]);
+  const [tickets, setTickets] = useState<FixTicket[]>([]);
   const [chats, setChats] = useState<UnreadChat[]>([]);
   const [seen, setSeen] = useState(0);
   const [open, setOpen] = useState(false);
@@ -606,7 +653,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
 
   const load = useCallback(async () => {
     try {
-      const r = await api<{ pending: Leave[]; news: News[]; clock: OpenClock[] }>("/api/portal/avisos");
+      const r = await api<{ pending: Leave[]; news: News[]; clock: OpenClock[]; tickets?: FixTicket[] }>("/api/portal/avisos");
       setPending(r.pending);
       setNews(r.news);
       // Un aviso de dirección que aún no se ha visto en este dispositivo salta en pantalla una vez
@@ -620,6 +667,7 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
         toast(`Aviso de dirección: ${n.text}`);
       }
       setClock(r.clock ?? []);
+      setTickets(r.tickets ?? []);
     } catch {}
   }, []);
   const loadChats = useCallback(async () => {
@@ -694,8 +742,8 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
   });
 
   const fresh = news.filter((n) => new Date(n.at).getTime() > seen);
-  const count = pending.length + fresh.length + due.length + chats.length + clock.length + (ending ? 1 : 0);
-  const empty = !pending.length && !news.length && !due.length && !chats.length && !clock.length && !ending;
+  const count = pending.length + fresh.length + due.length + chats.length + clock.length + tickets.length + (ending ? 1 : 0);
+  const empty = !pending.length && !news.length && !due.length && !chats.length && !clock.length && !tickets.length && !ending;
 
   function toggle() {
     if (open && fresh.length) {
@@ -780,6 +828,14 @@ export function Bell({ data, toast, onGoPortal, onGoWhatsApp, onOpenLead }: Bell
                 <button className="news" onClick={go(onGoPortal)}>
                   <span className="news-line"><Icon name="alarm" size={16} /> {c.mine ? "Tu jornada sigue abierta" : <><strong>{c.name}</strong> no ha fichado la salida</>}</span>
                   <span className="muted hint">Lleva {c.hours} h abierta. {c.mine ? "¿Olvidaste fichar la salida?" : "Puedes corregirla en Portal → Fichaje."}</span>
+                </button>
+              </li>
+            ))}
+            {tickets.map((t) => (
+              <li key={`t${t.id}`}>
+                <button className="news" onClick={go(onGoPortal)}>
+                  <span className="news-line"><Icon name="pencil" size={16} /> <strong>{t.name}</strong> pide corregir su fichaje del {t.day}</span>
+                  <span className="muted hint">{t.text}</span>
                 </button>
               </li>
             ))}
