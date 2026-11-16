@@ -34,6 +34,7 @@ export const GET = handle(async () => {
     syncedAt: new Date(syncedAt).toISOString(),
     logReady,
     waReady: store.waConfigured(),
+    embudo: me.role === "admin" || users.find((u) => u.id === me.uid)?.embudo === true,
   };
   return NextResponse.json(payload);
 });

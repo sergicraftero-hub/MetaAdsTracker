@@ -27,7 +27,7 @@ function useBonuses(refreshKey: unknown) {
   return { state, load };
 }
 
-function Meter({ b }: { b: Bonus }) {
+function Meter({ b, quiet }: { b: Bonus; quiet?: boolean }) {
   const value = b.value ?? 0;
   const done = value >= b.goal;
   return (
@@ -36,10 +36,12 @@ function Meter({ b }: { b: Bonus }) {
       <div className="bonus-main">
         <div className="bonus-head">
           <strong>{b.title}</strong>
-          <span className="bonus-num">
-            {value}
-            <small>/{b.goal}</small>
-          </span>
+          {!quiet && (
+            <span className="bonus-num">
+              {value}
+              <small>/{b.goal}</small>
+            </span>
+          )}
         </div>
         <div className="meter" role="meter" aria-valuemin={0} aria-valuemax={b.goal} aria-valuenow={Math.min(value, b.goal)} aria-label={b.title}>
           <span style={{ width: `${Math.min(100, (value / b.goal) * 100)}%` }} />
@@ -73,7 +75,7 @@ export function BonusCards({ data, refreshKey }: { data: LeadsPayload; refreshKe
   // Primero el del equipo, luego los individuales
   return (
     <div className="bonus-list">
-      {[...mine].sort((a, b) => Number(!!a.para) - Number(!!b.para)).map((b) => <Meter key={b.id} b={b} />)}
+      {[...mine].sort((a, b) => Number(!!a.para) - Number(!!b.para)).map((b) => <Meter key={b.id} b={b} quiet={data.me.role !== "admin" && b.metric === "firmados"} />)}
     </div>
   );
 }

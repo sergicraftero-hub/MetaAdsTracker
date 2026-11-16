@@ -9,7 +9,7 @@ const req = (p, m, url, body) => p.evaluate(([m, u, b]) => fetch(u, { method: m,
   const M = leads.find(l => !l.f.estado && !l.f.comercial && l.id !== L.id); const seq2 = []; for (let i = 0; i < 5; i++) { const r = (await req(a, 'POST', `/api/leads/${M.id}/llamada`, { fields: { estado: i === 4 ? 'CONTACTADO E INTERESADO' : 'ILOCALIZABLE' }, shownAt: new Date().toISOString() }))[1].lead; seq2.push(`${r.f.intentos}:${r.f.estado}`); }
   console.log('contesta al 5.º:', seq2[4]);
   // ---- mensajes preparados
-  await a.reload(); await a.click('.tab:has-text("WhatsApp")'); await a.waitForSelector('.wa-list'); await a.click('.wa-list >> text=Global'); await a.locator('.chat-item').first().click(); await a.waitForSelector('.tpl-row .tag');
+  await a.reload(); await a.click('.tab:has-text("WhatsApp")'); await a.waitForSelector('.wa-list'); await a.locator('.chat-item').first().click(); await a.waitForSelector('.tpl-row .tag');
   console.log('plantillas:', await a.$$eval('.tpl-row .tag', x => x.map(e => e.innerText)));
   await a.click('.tpl-row .tag >> nth=0'); console.log('pegado (sin enviar):', JSON.stringify(await a.inputValue('.chat-row textarea')), '| mensajes enviados:', await a.locator('.msg.me:has-text("no he podido localizarte")').count());
   await a.screenshot({ path: S + '/t-plantilla.png' });

@@ -15,7 +15,7 @@ for t in "${TESTS[@]}"; do
   pkill -f "next start -p $PORT" 2>/dev/null; pkill -f next-server 2>/dev/null; sleep 1
   env -u NOTION_TOKEN -u WHAPI_TOKEN npx next start -p $PORT > "$OUT/servidor.log" 2>&1 &
   for i in $(seq 1 40); do curl -s -o /dev/null "localhost:$PORT/login" && break; sleep 0.5; done
-  if timeout 180 node "pruebas/$t.js" "$OUT" pruebas/ejemplo.pdf > "$OUT/$t.log" 2>&1 && ! grep -q "TimeoutError\|TypeError\|ReferenceError" "$OUT/$t.log"; then
+  if timeout 180 node "pruebas/$t.js" "$OUT" pruebas/ejemplo.pdf > "$OUT/$t.log" 2>&1 && ! grep -q "TimeoutError\|TypeError\|ReferenceError\|^MAL " "$OUT/$t.log"; then
     echo "OK     $t"
   else
     echo "FALLA  $t   (ver $OUT/$t.log)"; FAIL=1

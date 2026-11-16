@@ -208,7 +208,9 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
   const [flagged, setFlagged] = useState(false);
   const [q, setQ] = useState("");
   const myCode = data.me.code;
-  const [scope, setScope] = useState<"mios" | "todos">(myCode ? "mios" : "todos");
+  const admin = data.me.role === "admin";
+  // El comercial solo tiene sus chats (el servidor no le envía los demás); «Global» es de dirección
+  const [scope, setScope] = useState<"mios" | "todos">(admin ? (myCode ? "mios" : "todos") : "mios");
   const [onlyUnread, setOnlyUnread] = useState(false);
 
   const load = useCallback(async () => {
@@ -288,7 +290,7 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
   }
 
   const chats = inbox.chats
-    .filter((c) => scope === "todos" || same(ownerOf(c), myCode))
+    .filter((c) => !admin || scope === "todos" || same(ownerOf(c), myCode))
     .filter((c) => !onlyUnread || c.unread !== 0)
     .filter((c) => !q || `${nameOf(c)} ${c.phone}`.toLowerCase().includes(q.toLowerCase()));
   const current = inbox.chats.find((c) => c.id === open);
@@ -298,7 +300,7 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
   return (
     <div className={open ? "wa has-open" : "wa"}>
       <aside className="card wa-list">
-        {myCode && (
+        {admin && myCode && (
           <div className="seg" role="group" aria-label="Qué chats ver">
             <button className={scope === "mios" ? "active" : ""} onClick={() => setScope("mios")}>Mis chats</button>
             <button className={scope === "todos" ? "active" : ""} onClick={() => setScope("todos")}>Global</button>
@@ -306,7 +308,7 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
         )}
         <label className="check small-check">
           <input type="checkbox" checked={onlyUnread} onChange={(e) => setOnlyUnread(e.target.checked)} />
-          Solo no leídos ({inbox.chats.filter((c) => c.unread !== 0 && (scope === "todos" || same(ownerOf(c), myCode))).length})
+          Solo no leídos ({inbox.chats.filter((c) => c.unread !== 0 && (!admin || scope === "todos" || same(ownerOf(c), myCode))).length})
         </label>
         <input type="search" placeholder="Buscar chat o escribir un teléfono" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar chat" />
         <p className="muted hint">Número compartido: +{inbox.phone}</p>
@@ -337,7 +339,7 @@ export default function WhatsApp({ data, openLead, toast }: { data: LeadsPayload
           <button className="btn" onClick={() => setOpen(`${typed}@s.whatsapp.net`)}>Abrir chat con +{typed}</button>
         )}
         {chats.length === 0 && typed.length < 9 && (
-          scope === "mios" && !q ? <Empty small title="Aún no tienes chats" text="Mira en Global y asígnate los tuyos." /> : <Empty small title="Ningún chat coincide" />
+          scope === "mios" && !q ? <Empty small title="Aún no tienes chats" text={admin ? "Mira en Global y asígnate los tuyos." : "Aquí verás los chats de tus leads y los que te asigne dirección."} /> : <Empty small title="Ningún chat coincide" />
         )}
       </aside>
       <section className="card wa-chat">

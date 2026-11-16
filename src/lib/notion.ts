@@ -283,6 +283,7 @@ const USER_PROPS: Record<string, any> = {
   Password: { rich_text: {} },
   Activo: { checkbox: {} },
   Jornada: { number: {} },
+  Embudo: { checkbox: {} },
 };
 const LOG_PROPS: Record<string, any> = {
   Fecha: { date: {} },
@@ -459,6 +460,7 @@ function toUser(page: any, s: Record<string, { name: string; type: string }>): S
     hash: String(get("password") ?? ""),
     active: get("activo") === true,
     hours: Number(get("jornada") ?? 0) || 0,
+    embudo: get("embudo") === true,
   };
 }
 
@@ -486,6 +488,7 @@ export async function saveUser(id: string | null, u: Partial<StoredUser>): Promi
   if (u.hash !== undefined) set("password", u.hash);
   if (u.active !== undefined) set("activo", u.active);
   if (u.hours !== undefined) set("jornada", u.hours);
+  if (u.embudo !== undefined) set("embudo", u.embudo);
   const page = id
     ? await api(`pages/${id}`, "PATCH", { properties: props })
     : await api("pages", "POST", { parent: { database_id: await appDb("users") }, properties: props });

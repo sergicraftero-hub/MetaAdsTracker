@@ -13,7 +13,7 @@ const next = async (p, cur) => p.waitForFunction(n => { const e = document.query
   cur = await phoneOf(m); await m.click('.res:has-text("Ilocalizable")'); await next(m, cur);
   // 3) pulsa Llamar y vuelve en 1 s
   cur = await phoneOf(m); await m.evaluate(() => document.querySelector('.call-card a.btn.primary').addEventListener('click', e => e.preventDefault())); await m.click('.call-card a.btn.primary'); await away(m, 1100); await m.click('.res:has-text("Ilocalizable")'); await next(m, cur);
-  await m.click('text=Pausar');
+  await m.click('.tab:has-text("Agenda")');
   // 4) llamada pedida desde el ordenador y aceptada en el móvil
   const d = await ctx(b, 'ana@demo.com', { viewport: { width: 1280, height: 860 } }); await d.click('text=Empezar a llamar'); await d.waitForSelector('.call-card'); const dcur = await phoneOf(d);
   await d.click('.call-card button:has-text("Llamar")'); await m.waitForSelector('[role=alertdialog]', { timeout: 9000 }); await m.evaluate(() => document.querySelector('[role=alertdialog] a').addEventListener('click', e => e.preventDefault())); await m.click('[role=alertdialog] a'); await away(m, 3000); await m.waitForTimeout(600);

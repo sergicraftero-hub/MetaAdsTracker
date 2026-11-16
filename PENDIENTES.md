@@ -21,7 +21,7 @@ Lista guardada el 15 de noviembre de 2026. Nada de esto está hecho; son ideas p
 
 ## Ajustes pequeños
 
-- Ocultar Embudo al comercial (enseña el recuento de leads por estado).
+- ~~Ocultar Embudo al comercial.~~ Hecho: es opcional por usuario, desde Equipo.
 - Asignar los 42 leads que quedaron sin comercial en el reparto masivo.
 
 ## Visual

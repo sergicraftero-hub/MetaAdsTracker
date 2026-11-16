@@ -6,6 +6,7 @@ import { stageOf } from "@/lib/fields";
 import type { Lead, LeadsPayload } from "@/lib/types";
 import { BonusCards } from "./Bonuses";
 import CallButton, { useAwayTimer } from "./CallButton";
+import { useDialogs } from "./Dialogs";
 import Icon from "./Icon";
 import SaleForm from "./SaleForm";
 import CodeHint, { salesChanged } from "./CodeHint";
@@ -47,6 +48,8 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload, onC
   const [cbTime, setCbTime] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [tick, setTick] = useState(0);
+  const [pausedAt, setPausedAt] = useState<number | null>(null);
+  const dlg = useDialogs();
   const away = useAwayTimer();
   const leadsRef = useRef(data.leads);
   leadsRef.current = data.leads;
@@ -131,6 +134,41 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload, onC
     }
   }
 
+  /** Al reanudar se vuelve a reservar el lead: si la pausa ha sido larga, la reserva puede haber caducado. */
+  async function resume() {
+    if (!cur) return setPausedAt(null);
+    setBusy(true);
+    try {
+      const { lead: fresh } = await api<{ lead: Lead }>(`/api/leads/${cur.id}/reservar`, "POST");
+      replaceLead(fresh);
+      setBusy(false);
+      setPausedAt(null);
+    } catch {
+      setPausedAt(null);
+      toast("Mientras estabas en pausa, este lead lo ha cogido otra persona. Te damos el siguiente.");
+      session.handled.add(cur.id);
+      await advance();
+    }
+  }
+
+  async function clockOut() {
+    if (!(await dlg.confirm({ title: "¿Fichar la salida?", text: "Se cierra tu jornada de hoy y dejan de salirte llamadas.", ok: "Fichar salida" }))) return;
+    setBusy(true);
+    try {
+      await api("/api/portal/fichaje", "POST", { action: "salir" });
+      toast("Salida registrada. ¡Hasta mañana!");
+      setActive(false);
+      setCur(null);
+      reload();
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+    setBusy(false);
+  }
+  const clockOutBtn = data.clockedIn === true && (
+    <button className="btn clock-out" disabled={busy} onClick={clockOut}><Icon name="stop" size={16} /> Fichar salida</button>
+  );
+
   function choose(estado: string) {
     const stage = stageOf(estado);
     const up = estado.toUpperCase();
@@ -206,8 +244,9 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload, onC
             {remaining > 0
               ? `Te quedan ${Math.max(1, Math.ceil(remaining / 60_000))} minutos, así que ya no te damos más llamadas: no daría tiempo a atenderlas bien.`
               : "Por hoy ya no te damos más llamadas."}{" "}
-            Deja anotado lo que tengas pendiente y ficha la salida en el Portal. ¡Buen trabajo hoy!
+            Deja anotado lo que tengas pendiente y ficha la salida. ¡Buen trabajo hoy!
           </p>
+          {clockOutBtn}
         </section>
         <Inspire seed={session.done} />
       </div>
@@ -252,6 +291,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload, onC
           >
             {busy ? "Cargando…" : total === 0 ? "Nada pendiente" : active ? "Volver a empezar" : "Empezar a llamar"}
           </button>
+          {clockOutBtn}
         </section>
         <Inspire seed={session.done} />
       </div>
@@ -276,15 +316,28 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload, onC
     .map((w) => w[0]?.toUpperCase())
     .join("");
 
+  const pausedFor = pausedAt === null ? 0 : Math.max(0, Math.floor((Date.now() - pausedAt) / 1000));
+
   return (
     <div className="call-wrap">
+      {pausedAt !== null && (
+        <div className="overlay centered dialog-layer pause-layer">
+          <div className="card modal dialog pause-modal" role="alertdialog" aria-modal="true" aria-label="Llamadas en pausa">
+            <span className="big-ico"><Icon name="pause" size={30} /></span>
+            <h2 className="lead-name">En pausa</h2>
+            <p className="pause-time">{Math.floor(pausedFor / 60)}:{String(pausedFor % 60).padStart(2, "0")}</p>
+            <p className="muted">El lead que tenías en pantalla te espera. Nadie más lo recibe mientras tanto.</p>
+            <button className="btn primary big" autoFocus disabled={busy} onClick={resume}>{busy ? "Volviendo…" : "Reanudar"}</button>
+          </div>
+        </div>
+      )}
       <BonusCards data={data} refreshKey={session.done} />
       <div className="call-bar">
         <span className={`pill src-${cur.source}`}>
           {SOURCE_LABEL[cur.source]}
           {cur.source === "rellamada" && f.rellamada ? ` · ${fmtWhen(f.rellamada)}` : ""}
         </span>
-        <button className="btn small" onClick={() => setActive(false)}>Pausar</button>
+        <button className="btn small" onClick={() => setPausedAt(Date.now())}><Icon name="pause" size={14} /> Pausar</button>
       </div>
 
       <section className="card call-card swap" key={cur.id}>
@@ -324,7 +377,7 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload, onC
             </div>
           ))}
         </dl>
-        <CodeHint />
+        <CodeHint toast={toast} />
         {previous.length > 0 && <p className="muted hint">Intentos anteriores: {previous.join("  ·  ")}</p>}
 
         <div className="field">
@@ -399,17 +452,19 @@ export default function CallMode({ data, replaceLead, toast, onChat, reload, onC
                 </span>
               </button>
             ))}
-            <details className="discard">
-              <summary>Descartar el lead</summary>
-              <div className="res-grid">
-                {lost.map((o) => (
-                  <button key={o.name} className="res small" disabled={busy} onClick={() => choose(o.name)}>
-                    <i className="dot d-red" />
-                    <span><b>{labelOf(o.name).title}</b></span>
-                  </button>
-                ))}
-              </div>
-            </details>
+            {lost.length > 0 && (
+              <>
+                <h4 className="res-sub">No sigue adelante</h4>
+                <div className="res-grid">
+                  {lost.map((o) => (
+                    <button key={o.name} className="res small" disabled={busy} onClick={() => choose(o.name)}>
+                      <i className="dot d-red" />
+                      <span><b>{labelOf(o.name).title}</b></span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <button className="btn link skip" disabled={busy} onClick={() => finish(null)}><Icon name="skip" size={15} /> Saltar sin llamar</button>
           </div>
         )}
@@ -423,6 +478,11 @@ const NICE: Record<string, { title: string; hint?: string }> = {
   RELLAMAR: { title: "Rellamar", hint: "Pide que le llames luego" },
   ILOCALIZABLE: { title: "Ilocalizable", hint: "No lo coge" },
   "CONTACTADO E INTERESADO": { title: "Interesado", hint: "Quiere seguir adelante" },
+  "CONTACTADO Y NO INTERESADO": { title: "No interesado" },
+  "CONTRATO CON OTRA COMPAÑIA": { title: "Contrató con otra compañía" },
+  "CONTRATO O2 POR OTRO CANAL": { title: "Contrató O2 por otro canal" },
+  "QUIERE MOVIL FINAN": { title: "Quiere móvil financiado" },
+  "NUMERO ERRONEO": { title: "Número erróneo" },
   "HABLANDO POR WHATSAPP": { title: "Por WhatsApp", hint: "Seguís por chat" },
   "LO ESTÁ PENSANDO AÚN": { title: "Se lo piensa", hint: "Necesita tiempo" },
   SCORING: { title: "Scoring", hint: "En comprobación" },

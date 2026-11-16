@@ -294,12 +294,14 @@ export function LeadList({ data, actions }: Props) {
       data.leads
         .filter((l) => {
           const e = str(l.f.estado);
+          // El comercial solo ve aquí los leads suyos que ya ha trabajado; los que están por llamar le salen en Llamar
+          if (!admin && !(e && data.me.code && str(l.f.comercial).trim().toLowerCase() === data.me.code.trim().toLowerCase())) return false;
           if (estado === "__nuevo" ? e : estado && e !== estado) return false;
           if (comercial === "__nadie" ? l.f.comercial : comercial && str(l.f.comercial) !== comercial) return false;
           return matches(l, q);
         })
         .sort((a, b) => entryTime(b) - entryTime(a)),
-    [data.leads, q, estado, comercial],
+    [data.leads, q, estado, comercial, admin, data.me.code],
   );
 
   const toggle = (id: string) =>
@@ -335,7 +337,7 @@ export function LeadList({ data, actions }: Props) {
         <input type="search" placeholder="Buscar por nombre, teléfono, email o CP" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar" />
         <select value={estado} onChange={(e) => setEstado(e.target.value)} aria-label="Estado">
           <option value="">Todos los estados</option>
-          <option value="__nuevo">Sin contactar</option>
+          {admin && <option value="__nuevo">Sin contactar</option>}
           {data.schema.estado.options?.map((o) => <option key={o.name}>{o.name}</option>)}
         </select>
         {admin && (
@@ -379,7 +381,7 @@ export function LeadList({ data, actions }: Props) {
             />
           ))}
         </ul>
-        {list.length === 0 && <Empty title="Ningún lead coincide" text="Prueba con otro filtro o con otra búsqueda." />}
+        {list.length === 0 && <Empty title={admin ? "Ningún lead coincide" : "Aún no hay leads aquí"} text={admin ? "Prueba con otro filtro o con otra búsqueda." : "Aquí aparecen los leads que ya has llamado. Los nuevos te salen en Llamar."} />}
         {list.length > limit && (
           <button className="btn link" onClick={() => setLimit(limit + 100)}>Mostrar más</button>
         )}

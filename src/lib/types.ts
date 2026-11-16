@@ -61,6 +61,8 @@ export interface User {
   active: boolean;
   /** Horas de jornada al día que fija dirección (0 = sin límite) */
   hours?: number;
+  /** Dirección le deja ver la pestaña Embudo (los de dirección la ven siempre) */
+  embudo?: boolean;
 }
 
 export interface StoredUser extends User {
@@ -288,6 +290,8 @@ export interface LeadsPayload {
   clock: { start: string; breaks: { s: string; e: string | null }[]; hours: number } | null;
   /** ¿Está conectado el WhatsApp compartido? */
   waReady: boolean;
+  /** Si este usuario puede ver la pestaña Embudo */
+  embudo: boolean;
   /** ¿Existe la base de datos donde se registran las llamadas? */
   logReady: boolean;
 }

@@ -31,8 +31,13 @@ const out = (...a) => console.log(...a);
   // dirección corrige un fichaje
   await a.click('.seg >> text=Fichaje'); await a.waitForSelector('.clock'); await a.selectOption('.filters select', 'ana@demo.com'); await a.waitForSelector('tbody >> text=Corregir'); await a.click('tbody >> text=Corregir'); { const v = await a.inputValue('.modal input >> nth=0'); const d = new Date(v); d.setHours(d.getHours() - 2); const z = n => String(n).padStart(2, '0'); await a.fill('.modal input >> nth=0', `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`); } await a.fill('.modal textarea', 'Olvidó fichar la entrada'); await a.click('text=Guardar corrección'); await a.waitForSelector('tbody .pill:has-text("Corregido")'); await a.screenshot({ path: S + '/p-fichaje.png' }); out('corrección registrada:', await a.locator('tbody .pill:has-text("Corregido")').getAttribute('title'));
   // whatsapp: mis chats
-  await m.click('.tab:has-text("WhatsApp")'); await m.waitForSelector('.wa-list'); const mine0 = await m.locator('.chat-item').count(); await m.click('.wa-list >> text=Global'); await m.waitForSelector('.chat-item'); const all = await m.locator('.chat-item').count();
-  await m.locator('.chat-item').last().click(); await m.waitForSelector('.chat-head .owner'); await m.selectOption('.chat-head .owner', 'ANA'); await m.waitForSelector('.toast:has-text("asignado")'); await m.click('.chat-head .btn'); await m.click('.wa-list >> text=Mis chats'); await m.waitForTimeout(400);
-  out('whatsapp mis chats antes/global/después:', mine0, all, await m.locator('.chat-item').count()); await m.screenshot({ path: S + '/p-wa-m.png' });
+  await m.click('.tab:has-text("WhatsApp")'); await m.waitForSelector('.wa-list'); await m.waitForTimeout(500); const mine0 = await m.locator('.chat-item').count();
+  const wa = p => p.evaluate(() => fetch('/api/whatsapp').then(r => r.json()).then(j => j.chats.map(c => c.id)));
+  const suyos = await wa(m), todos = await wa(a); const ajeno = todos.find(id => !suyos.includes(id));
+  out('comercial sin «Global»:', await m.locator('.wa-list >> text=Global').count() === 0, '| el servidor le envía', suyos.length, 'de', todos.length, 'chats');
+  // dirección le asigna uno que no era suyo
+  await a.evaluate(id => fetch('/api/whatsapp/asignar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, owner: 'ANA' }) }), ajeno);
+  await m.reload(); await m.click('.tab:has-text("WhatsApp")'); await m.waitForSelector('.chat-item'); await m.waitForTimeout(500);
+  out('whatsapp mis chats antes/después de que dirección le asigne uno:', mine0, await m.locator('.chat-item').count()); await m.screenshot({ path: S + '/p-wa-m.png' });
   out('overflow móvil:', await m.evaluate(() => document.documentElement.scrollWidth - innerWidth), '| errores:', errs.filter(e => !/40[34]/.test(e))); await b.close();
 })().catch(e => { console.error(e); process.exit(1); });

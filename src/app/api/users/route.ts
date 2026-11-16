@@ -30,6 +30,7 @@ export const POST = handle(async (req: Request) => {
     role,
     code: (b.code ?? "").trim(),
     hours: cleanHours(b.hours),
+    embudo: b.embudo === true,
     active: true,
     hash: hashPassword(b.password),
   });

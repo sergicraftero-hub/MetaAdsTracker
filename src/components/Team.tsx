@@ -14,7 +14,7 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
   const [users, setUsers] = useState<User[] | null>(null);
   const [configured, setConfigured] = useState(true);
   const [status, setStatus] = useState<Status | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", role: "comercial", code: "", password: "", hours: "8" });
+  const [form, setForm] = useState({ name: "", email: "", role: "comercial", code: "", password: "", hours: "8", embudo: false });
   const [busy, setBusy] = useState(false);
   const dlg = useDialogs();
 
@@ -39,7 +39,7 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
     setBusy(true);
     try {
       await api("/api/users", "POST", form);
-      setForm({ name: "", email: "", role: "comercial", code: "", password: "", hours: "8" });
+      setForm({ name: "", email: "", role: "comercial", code: "", password: "", hours: "8", embudo: false });
       toast("Usuario creado");
       await load();
     } catch (err) {
@@ -108,9 +108,10 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
                                 { key: "role", label: "Rol", type: "select", value: u.role, options: [{ value: "comercial", label: "Comercial (ve solo lo suyo)" }, { value: "admin", label: "Dirección (ve todo)" }] },
                                 { key: "code", label: "Código en la columna COMERCIAL", value: u.code, hint: "Tiene que ser idéntico a su opción en Notion. Vacío si no llama." },
                                 { key: "hours", label: "Horas de jornada al día", type: "number", value: String(u.hours ?? 0), min: 0, max: 16, step: 0.5, hint: "0 = sin límite" },
+                                { key: "embudo", label: "Pestaña Embudo", type: "select", value: u.embudo ? "si" : "no", options: [{ value: "no", label: "No la ve" }, { value: "si", label: "Sí la ve" }], hint: "Dirección la ve siempre." },
                               ],
                             });
-                            if (v) patch(u.id, { name: v.name, code: v.code, hours: v.hours, role: v.role }, "Usuario actualizado");
+                            if (v) patch(u.id, { name: v.name, code: v.code, hours: v.hours, role: v.role, embudo: v.embudo === "si" }, "Usuario actualizado");
                           }}
                         >
                           Editar
@@ -170,6 +171,12 @@ export default function Team({ data, toast }: { data: LeadsPayload; toast: (m: s
                   Horas de jornada al día (0 = sin límite)
                   <input type="number" min={0} max={16} step={0.5} value={form.hours} onChange={(e) => setForm({ ...form, hours: e.target.value })} />
                 </label>
+                {form.role === "comercial" && (
+                  <label className="check">
+                    <input type="checkbox" checked={form.embudo} onChange={(e) => setForm({ ...form, embudo: e.target.checked })} />
+                    Puede ver la pestaña Embudo
+                  </label>
+                )}
                 <label>
                   Contraseña inicial
                   <input required minLength={8} type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />

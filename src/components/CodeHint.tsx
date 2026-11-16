@@ -1,5 +1,6 @@
 "use client";
 import TierBar from "./TierBar";
+import { KeyDialog } from "./Keys";
 import { useEffect, useState } from "react";
 import Icon from "./Icon";
 import { api, dayKey } from "./util";
@@ -39,20 +40,36 @@ const left = (n: number | null) =>
   n === null ? "Este código ya está en el tramo más alto." : n === 1 ? "Falta 1 venta de fibra hasta cambiar de tramo." : `Faltan ${n} ventas de fibra hasta cambiar de tramo.`;
 
 /** Tarjeta con el código del día y las ventas de fibra que le faltan. No muestra importes. */
-export default function CodeHint({ big }: { big?: boolean }) {
+export default function CodeHint({ big, toast }: { big?: boolean; toast?: (m: string, e?: boolean) => void }) {
   const rec = useCode();
+  const [keys, setKeys] = useState(false);
   if (!rec) return null;
   const { recommended: r, missing } = rec;
   const same = r["No Movistar"] === r.Movistar;
+  if (!big) {
+    // En la ficha del lead es un botón: al pulsarlo salen el usuario y la contraseña de ese código
+    return (
+      <>
+        <button type="button" className="code-hint code-btn" onClick={() => setKeys(true)}>
+          <span className="code-ico"><Icon name="key" size={16} /></span>
+          <span>
+            Si contrata, cárgalo en <b>{r.Movistar}</b>
+          </span>
+          <span className="code-go">Ver claves</span>
+        </button>
+        {keys && <KeyDialog code={r.Movistar} onClose={() => setKeys(false)} toast={toast} />}
+      </>
+    );
+  }
   return (
-    <div className={big ? "code-hint big" : "code-hint"}>
-      <span className="code-ico"><Icon name="target" size={big ? 20 : 15} /></span>
+    <div className="code-hint big">
+      <span className="code-ico"><Icon name="target" size={20} /></span>
       <span>
-        {big && <span className="muted hint block">Tu código de hoy</span>}
-        {big ? <b>{r.Movistar}</b> : <>Si contrata, cárgalo en <b>{r.Movistar}</b></>}
+        <span className="muted hint block">Tu código de hoy</span>
+        <b>{r.Movistar}</b>
         {!same && <> (si no viene de Movistar, <b>{r["No Movistar"]}</b>)</>}
-        {big && <span className="hint block">{left(missing.Movistar)}</span>}
-        {big && rec.progress && <TierBar value={rec.progress.have} steps={rec.progress.steps} label={r.Movistar} />}
+        <span className="hint block">{left(missing.Movistar)}</span>
+        {rec.progress && <TierBar value={rec.progress.have} steps={rec.progress.steps} label={r.Movistar} />}
       </span>
     </div>
   );

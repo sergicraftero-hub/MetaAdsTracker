@@ -16,6 +16,7 @@ export const PATCH = handle(async (req: Request, ctx: { params: Promise<{ id: st
   if (typeof b.code === "string") patch.code = b.code.trim();
   if (b.hours !== undefined) patch.hours = cleanHours(b.hours);
   if (typeof b.active === "boolean") patch.active = b.active;
+  if (typeof b.embudo === "boolean") patch.embudo = b.embudo;
   if (b.password !== undefined) {
     if (b.password.length < 8) throw new HttpError(400, "La contraseña debe tener al menos 8 caracteres");
     patch.hash = hashPassword(b.password);
