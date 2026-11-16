@@ -248,7 +248,7 @@ const MANUAL: { title: string; items: [string, string][] }[] = [
       ["Llamar desde el ordenador", "El botón Llamar envía un aviso al móvil o tablet donde ese mismo usuario tenga la app abierta; al aceptarlo, el teléfono marca."],
       ["Usuarios", "En Equipo: alta, edición, activar o desactivar y cambio de contraseña. El «código» de cada comercial tiene que coincidir exactamente con su opción en la columna COMERCIAL de Notion."],
       ["Dónde se guarda cada cosa", "Todo está en Notion. Los leads, en «LEADS O2». Lo propio de la app, en bases que crea sola dentro de la página «BUT Calls»: Usuarios, Registro de llamadas, Bonos, Avisos de llamada, WhatsApp enviados, Reservas de llamada, Fichajes, Solicitudes y Nóminas."],
-      ["Instalar la app", "iPhone: Safari → Compartir → Añadir a pantalla de inicio. Android: Chrome → menú → Instalar aplicación. Ordenador: Chrome o Edge → icono de instalar en la barra de direcciones."],
+      ["Instalar la app", "iPhone: Safari → Compartir → Añadir a pantalla de inicio (en un iPhone, la pantalla de acceso enseña estos pasos hasta pulsar «Entendido»). Android: también hay un APK para instalar directamente. Android: Chrome → menú → Instalar aplicación. Ordenador: Chrome o Edge → icono de instalar en la barra de direcciones."],
       ["Sin conexión", "La app se abre y enseña los últimos datos cargados, pero para guardar cambios hace falta conexión."],
     ],
   },

@@ -799,3 +799,10 @@ tr.is-baja { opacity: 0.55; }
 @keyframes sun-rise { from { transform: translateY(40px); opacity: 0.4; } to { transform: none; opacity: 1; } }
 @keyframes sway { from { transform: translateX(-2%); } to { transform: translateX(2%); } }
 @media (max-width: 520px) { .poster blockquote { font-size: 24px; } .p-sun { width: 76px; height: 76px; } }
+
+/* ---------- Aviso para instalar en iPhone ---------- */
+.install { display: grid; grid-template-columns: auto 1fr; gap: 10px 12px; align-items: start; background: var(--surface-2); border-radius: 14px; padding: 12px 14px; font-size: 14px; text-align: left; }
+.install strong { display: block; margin-bottom: 4px; }
+.install ol { margin: 0; padding-left: 18px; display: grid; gap: 2px; color: var(--muted); }
+.install ol .ico { vertical-align: -2px; }
+.install .btn { grid-column: 1 / -1; justify-self: end; }

@@ -1,4 +1,5 @@
 "use client";
+import InstallHint from "./InstallHint";
 import { useState } from "react";
 
 export default function LoginForm({ demo }: { demo: boolean }) {
@@ -51,6 +52,7 @@ export default function LoginForm({ demo }: { demo: boolean }) {
         </label>
         {error && <p className="error" role="alert">{error}</p>}
         <button className="btn primary" disabled={busy}>{busy ? "Entrando…" : "Entrar"}</button>
+        <InstallHint />
       </form>
     </main>
   );
