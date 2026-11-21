@@ -2,11 +2,14 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { store } from "./store";
 
 /**
- * Claves de acceso de cada código de carga (usuario, contraseña y enlace del portal donde se carga el contrato).
+ * Datos de acceso de cada código de carga: su SFID (la numeración del código), usuario, contraseña y enlace del portal
+ * donde se carga el contrato.
  * Las pone dirección. Se guardan cifradas en la fila «__claves» de Ajustes: en Notion solo se ve texto ilegible,
  * y solo la app, con su SESSION_SECRET, puede descifrarlas.
  */
 export interface CodeKey {
+  /** Numeración del código (SFID) */
+  sfid: string;
   user: string;
   password: string;
   url: string;
@@ -41,7 +44,7 @@ export async function loadKeys(): Promise<Record<string, CodeKey>> {
     const raw = String((await row())?.Plantillas ?? "");
     if (!raw) return {};
     const saved = JSON.parse(open(raw)) as Record<string, Partial<CodeKey>>;
-    return Object.fromEntries(Object.entries(saved).map(([k, v]) => [k, { user: String(v.user ?? ""), password: String(v.password ?? ""), url: String(v.url ?? "") }]));
+    return Object.fromEntries(Object.entries(saved).map(([k, v]) => [k, { sfid: String(v.sfid ?? ""), user: String(v.user ?? ""), password: String(v.password ?? ""), url: String(v.url ?? "") }]));
   } catch {
     return {};
   }
@@ -55,8 +58,8 @@ const cleanUrl = (u: unknown) => {
 /** Guarda (o borra, si va vacía) la clave de un código. */
 export async function saveKey(real: string, input: Partial<CodeKey>): Promise<void> {
   const all = await loadKeys();
-  const next: CodeKey = { user: String(input.user ?? "").trim().slice(0, 120), password: String(input.password ?? "").slice(0, 200), url: cleanUrl(input.url) };
-  if (next.user || next.password || next.url) all[real] = next;
+  const next: CodeKey = { sfid: String(input.sfid ?? "").trim().slice(0, 60), user: String(input.user ?? "").trim().slice(0, 120), password: String(input.password ?? "").slice(0, 200), url: cleanUrl(input.url) };
+  if (next.sfid || next.user || next.password || next.url) all[real] = next;
   else delete all[real];
   const sealed = seal(JSON.stringify(all));
   const cur = await row();

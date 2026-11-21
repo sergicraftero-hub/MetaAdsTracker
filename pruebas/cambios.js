@@ -9,9 +9,12 @@ const ok = (name, cond, extra = '') => { console.log(cond ? 'bien ' : 'MAL  ', n
   const a = await ctx(b, 'demo@demo.com', { viewport: { width: 1280, height: 900 } });
   // dirección pone las claves del Código 1
   await a.click('.tab:has-text("Claves")'); await a.waitForSelector('.code-card input'); const card = a.locator('.code-card').first();
-  await card.locator('input').nth(0).fill('usuario-prueba'); await card.locator('input').nth(1).fill('Clave-Secreta-1'); await card.locator('input').nth(2).fill('https://portal.example.com'); await card.locator('button.primary').click(); await a.waitForSelector('.toast:has-text("guardadas")'); await a.screenshot({ path: S + '/x-claves.png' });
+  await card.locator('input').nth(0).fill('SF-990011'); await card.locator('input').nth(1).fill('usuario-prueba'); await card.locator('input').nth(2).fill('Clave-Secreta-1'); await card.locator('input').nth(3).fill('https://portal.example.com'); await card.locator('button.primary').click(); await a.waitForSelector('.toast:has-text("guardadas")'); await a.screenshot({ path: S + '/x-claves.png' });
   const rec = (await req(a, 'GET', '/api/ventas/opciones'))[1].recommended.Movistar;
-  const todas = (await req(a, 'GET', '/api/claves'))[1].codes; ok('dirección ve las claves guardadas', todas[0].user === 'usuario-prueba' && todas[0].password === 'Clave-Secreta-1');
+  const todas = (await req(a, 'GET', '/api/claves'))[1].codes; ok('dirección ve las claves guardadas', todas[0].sfid === 'SF-990011' && todas[0].user === 'usuario-prueba' && todas[0].password === 'Clave-Secreta-1');
+  // código nuevo con su SFID desde Claves
+  await a.click('text=Añadir código'); await a.fill('.dialog input >> nth=0', 'LT009999 Prueba Nueva'); await a.fill('.dialog input >> nth=1', 'SF-123456'); await a.click('.dialog .btn.primary'); await a.waitForSelector('.code-card:has-text("LT009999 Prueba Nueva")');
+  const nuevo = (await req(a, 'GET', '/api/claves'))[1].codes.find(c => c.real === 'LT009999 Prueba Nueva'); ok('código nuevo añadido con su SFID', nuevo?.sfid === 'SF-123456' && await a.locator('.code-card:has-text("LT009999") input').first().inputValue() === 'SF-123456', nuevo?.alias);
   // comercial en móvil
   const m = await ctx(b, 'ana@demo.com', { ...devices['iPhone 13'] });
   ok('comercial no puede listar ni cambiar claves', (await req(m, 'GET', '/api/claves'))[0] === 403 && (await req(m, 'PUT', '/api/claves', { real: todas[0].real, user: 'x' }))[0] === 403);
@@ -24,8 +27,11 @@ const ok = (name, cond, extra = '') => { console.log(cond ? 'bien ' : 'MAL  ', n
   const estados = await m.$$eval('.results .res b', x => x.map(e => e.innerText)); ok('todos los estados a la vista', estados.includes('No interesado') && estados.includes('Interesado') && await m.locator('.results details').count() === 0, estados.join(', '));
   await m.locator('.results').screenshot({ path: S + '/x-estados.png' });
   // claves desde la ficha
-  if (rec === 'Código 1') { await m.click('.code-btn'); await m.waitForSelector('.key-list'); ok('el botón del código enseña usuario y contraseña', /usuario-prueba/.test(await m.locator('.key-modal').innerText()) && /Clave-Secreta-1/.test(await m.locator('.key-modal').innerText()));
-    await m.screenshot({ path: S + '/x-clave.png' }); await m.click('.key-modal >> text=Cerrar'); } else console.log('(recomendado', rec, ': no se prueba el botón)');
+  { const now = (await req(a, 'GET', '/api/claves'))[1].codes; await m.waitForSelector('.code-btn'); const alias = (await m.locator('.code-btn b').innerText()).trim(); const k = now.find(c => c.alias === alias);
+    if (k && !k.user) { await req(a, 'PUT', '/api/claves', { real: k.real, sfid: k.sfid || 'SF-777', user: 'usuario-' + alias, password: 'Clave-' + alias }); Object.assign(k, { sfid: k.sfid || 'SF-777', user: 'usuario-' + alias, password: 'Clave-' + alias }); }
+    await m.click('.code-btn'); await m.waitForSelector('.key-list'); const t = await m.locator('.key-modal').innerText();
+    ok('el botón del código enseña SFID, usuario y contraseña', t.includes(k.sfid) && t.includes(k.user) && t.includes(k.password) && !t.includes(k.real), alias);
+    await m.screenshot({ path: S + '/x-clave.png' }); await m.click('.key-modal >> text=Cerrar'); }
   // pausa
   await m.click('.call-bar >> text=Pausar'); await m.waitForSelector('.pause-modal'); await m.waitForTimeout(1200); await m.screenshot({ path: S + '/x-pausa.png' });
   const tapado = await m.evaluate(() => { const r = document.querySelector('.res').getBoundingClientRect(); const el = document.elementFromPoint(r.x + 5, r.y + 5); return !!el && !!el.closest('.pause-layer'); });

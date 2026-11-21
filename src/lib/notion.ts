@@ -966,7 +966,8 @@ async function segProps(values: Partial<Record<SegKey, Value>>, file?: File): Pr
 }
 
 /** Opciones de las columnas de estado y de código de carga, tal como están en Notion. */
-export async function segOptions(): Promise<{ estados: string[]; codigos: string[] }> {
+export async function segOptions(force = false): Promise<{ estados: string[]; codigos: string[] }> {
+  if (force) cache.seg = undefined;
   const { cols } = await seg();
   return { estados: cols.estado?.options ?? [], codigos: cols.codigo?.options ?? [] };
 }

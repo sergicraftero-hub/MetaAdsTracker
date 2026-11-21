@@ -65,7 +65,7 @@ export const store = {
   unlockLead: async (leadId: string, user: string): Promise<void> => (isDemo() ? demo.unlockLead(leadId, user) : notion.unlockLead(leadId, user)),
 
   /* Contrataciones: la base «Seguimiento O2» del cliente */
-  segOptions: async (): Promise<{ estados: string[]; codigos: string[] }> => (isDemo() ? demo.segOptions() : notion.segOptions()),
+  segOptions: async (force = false): Promise<{ estados: string[]; codigos: string[] }> => (isDemo() ? demo.segOptions() : notion.segOptions(force)),
   segList: async (force = false): Promise<notion.SegRow[]> => (isDemo() ? (demo.segList() as notion.SegRow[]) : notion.segList(force)),
   segGet: async (id: string): Promise<notion.SegRow> => (isDemo() ? (demo.segGet(id) as notion.SegRow) : notion.segGet(id)),
   segAdd: async (values: Partial<Record<notion.SegKey, notion.SegRow[notion.SegKey]>>, file?: File): Promise<notion.SegRow> =>

@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { useDialogs } from "./Dialogs";
 import Empty from "./Empty";
 import Icon from "./Icon";
 import { api } from "./util";
@@ -8,11 +9,13 @@ type Toast = (m: string, e?: boolean) => void;
 interface Row {
   alias: string;
   real: string;
+  sfid: string;
   user: string;
   password: string;
   url: string;
 }
 interface Key {
+  sfid: string;
   user: string;
   password: string;
   url: string;
@@ -23,6 +26,7 @@ export default function Keys({ toast }: { toast: Toast }) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [busy, setBusy] = useState("");
   const [shown, setShown] = useState<Set<string>>(new Set());
+  const dlg = useDialogs();
 
   const load = useCallback(() => {
     api<{ codes: Row[] }>("/api/claves")
@@ -39,7 +43,7 @@ export default function Keys({ toast }: { toast: Toast }) {
   async function save(r: Row) {
     setBusy(r.real);
     try {
-      await api("/api/claves", "PUT", { real: r.real, user: r.user, password: r.password, url: r.url });
+      await api("/api/claves", "PUT", { real: r.real, sfid: r.sfid, user: r.user, password: r.password, url: r.url });
       toast(`Claves de ${r.alias} guardadas`);
     } catch (e) {
       toast((e as Error).message, true);
@@ -47,16 +51,42 @@ export default function Keys({ toast }: { toast: Toast }) {
     setBusy("");
   }
 
+  /** Añade un código nuevo (en la columna «Codigo de carga» de Seguimiento O2) y guarda a la vez su SFID. */
+  async function addCode() {
+    const v = await dlg.form({
+      title: "Añadir código de carga",
+      text: "El nombre real tal como lo usáis (por ejemplo «LT001234 Nombre») y su SFID. Los comerciales solo verán «Código N».",
+      ok: "Añadir",
+      fields: [
+        { key: "name", label: "Nombre del código", required: true },
+        { key: "sfid", label: "SFID (numeración del código)" },
+      ],
+    });
+    if (!v) return;
+    const name = v.name.trim();
+    try {
+      await api("/api/ventas/opciones", "POST", { name });
+      if (v.sfid?.trim()) await api("/api/claves", "PUT", { real: name, sfid: v.sfid });
+      toast("Código añadido");
+      load();
+    } catch (e) {
+      toast((e as Error).message, true);
+    }
+  }
+
   if (!rows) return <p className="muted">Cargando…</p>;
   return (
     <div className="stack">
       <section className="card">
-        <h2>Claves de los códigos</h2>
+        <div className="between">
+          <h2>Claves de los códigos</h2>
+          <button type="button" className="btn small" onClick={addCode}>Añadir código</button>
+        </div>
         <p className="muted">
-          El usuario y la contraseña con los que se carga el contrato en cada código. El comercial los ve al pulsar el botón del código en la
+          El SFID, el usuario y la contraseña con los que se carga el contrato en cada código. El comercial los ve al pulsar el botón del código en la
           ficha del lead; no ve el nombre real del código. Se guardan cifradas.
         </p>
-        {rows.length === 0 && <Empty small title="Aún no hay códigos" text="Se añaden en Contratos → «Añadir código»." />}
+        {rows.length === 0 && <Empty small title="Aún no hay códigos" text="Añade el primero con el botón de arriba." />}
         <div className="codes">
           {rows.map((r) => (
             <form
@@ -71,6 +101,10 @@ export default function Keys({ toast }: { toast: Toast }) {
                 <strong>{r.alias}</strong>
                 <span className="muted hint">{r.real}</span>
               </div>
+              <label>
+                SFID (numeración del código)
+                <input value={r.sfid} autoComplete="off" inputMode="text" onChange={(e) => edit(r.real, { sfid: e.target.value })} />
+              </label>
               <label>
                 Usuario
                 <input value={r.user} autoComplete="off" onChange={(e) => edit(r.real, { user: e.target.value })} />
@@ -132,6 +166,13 @@ export function KeyDialog({ code, onClose, toast }: { code: string; onClose: () 
         {state && state !== "error" && !key && <p className="muted">Dirección aún no ha puesto las claves de este código.</p>}
         {key && (
           <dl className="key-list">
+            {key.sfid && (
+              <div>
+                <dt>SFID</dt>
+                <dd>{key.sfid}</dd>
+                <button type="button" className="btn small" onClick={() => copy(key.sfid, "SFID")}>Copiar</button>
+              </div>
+            )}
             <div>
               <dt>Usuario</dt>
               <dd>{key.user || "—"}</dd>
